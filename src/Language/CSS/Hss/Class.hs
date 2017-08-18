@@ -10,6 +10,8 @@ import Control.Monad.Free
 
 import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
+import           Data.Set        (Set)
+import qualified Data.Set        as Set
 import qualified Control.Lens    as Lens
 
 
@@ -103,18 +105,30 @@ instance Semigroup Number where (<>)   = (+)
 instance P.Monoid  Number where mempty  = mempty
                                 mappend = mappend
 
-instance Num (Unit -> Val) where
-  fromInteger = ValNum .: fromInteger
 
-instance Num (Unit -> Number) where
-  fromInteger i = flip Number (fromInteger i) . flip Map.singleton 1
 
-data Val
-  = Var Text
+data ValFlag = FlagImportant deriving (Eq, Ord, Show)
+
+important :: ValFlag
+important = FlagImportant
+
+
+data RawVal
+  = ValVar Text
   | ValNum Number
-  | Txt Text
-  | App Text [Val]
+  | ValTxt Text
+  | ValApp Text [Val]
   deriving (Show)
+
+data Val = Val
+  { _valFlags :: Set ValFlag
+  , _rawVal   :: RawVal
+  } deriving (Show)
+
+makeLenses ''Val
+
+(!) :: Val -> ValFlag -> Val
+(!) v f = v & valFlags %~ Set.insert f
 
 data Def = Def
   { _name :: Text
@@ -122,21 +136,36 @@ data Def = Def
   }
 
 
+instance Num (Unit -> Val) where
+  fromInteger = number .: fromInteger
+
+instance Num (Unit -> Number) where
+  fromInteger i = flip Number (fromInteger i) . flip Map.singleton 1
+
 -- === Utils === --
 
 tryToNumber :: Val -> Maybe Number
-tryToNumber = \case
+tryToNumber v = case v ^. rawVal of
   ValNum a -> Just a
   _        -> Nothing
 
 
-var :: Text -> Val
-var = Var
+val :: RawVal -> Val
+val = Val mempty
+
+var    :: Text   -> Val
+number :: Number -> Val
+txt    :: Text   -> Val
+app    :: Text -> [Val] -> Val
+var    = val .  ValVar
+number = val .  ValNum
+txt    = val .  ValTxt
+app    = val .: ValApp
 
 numApp :: Text -> ([Number] -> Number) -> [Val] -> Val
 numApp n f args = case sequence (tryToNumber <$> args) of
-  Just args' -> ValNum $ f args'
-  Nothing    -> App n args
+  Just args' -> number $ f args'
+  Nothing    -> app n args
 
 numApp1 :: Text -> (Number -> Number)                     -> Val -> Val
 numApp2 :: Text -> (Number -> Number -> Number)           -> Val -> Val -> Val
@@ -156,17 +185,17 @@ instance Show Def where
     where up_prec = 5
 
 instance IsString Val where
-  fromString = Txt . fromString
+  fromString = txt . fromString
 
 instance Num Val where
-  fromInteger = ValNum . fromInteger
+  fromInteger = number . fromInteger
   (+)         = numApp2 "+" (+)
   (-)         = numApp2 "-" (-)
   (*)         = numApp2 "*" (*)
   abs         = numApp1 "abs" abs
   signum      = numApp1 "signum" signum
 
-instance Convertible Number Val where convert = ValNum
+instance Convertible Number Val where convert = number
 
 
 ----------------------------

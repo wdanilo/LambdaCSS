@@ -75,7 +75,7 @@ test = ".config-menu" $ do
       fontSize   := fontOf #base ^. size
       marginLeft := marginOf #item
       lineHeight := menuItemOffset
-      -- background := none !important
+      background := none !important
 
 
 
