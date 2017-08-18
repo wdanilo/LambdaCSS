@@ -19,7 +19,8 @@ data LessVal
   deriving (Show)
 
 data LessDecl
-  = LessDef Text LessVal
+  = LessDefDecl     Text LessVal
+  | LessSectionDecl Text [LessDecl]
   deriving (Show)
 
 
@@ -28,8 +29,8 @@ toAST = fmap convert
 
 instance Convertible Decl LessDecl where
   convert = \case
-    DefDecl     (Def name val) -> LessDef name (convert val)
-    -- SectionDecl sect           ->
+    DefDecl     (Def name val) -> LessDefDecl name (convert val)
+    SectionDecl (Section s b)  -> LessSectionDecl (convert s) (convert <$> toList b)
     a                          -> error $ "TODO: " <> show a
 
 instance Convertible Val LessVal where
@@ -39,6 +40,10 @@ instance Convertible Val LessVal where
     Txt   a -> LessTxt a
     App t a -> LessApp t (convert <$> a)
 
+instance Convertible Selector Text where
+  convert = \case
+    SimpleSelector a -> a
+    SubSelector l r  -> convert l <> " > " <> convert r
 
 ----------------------------
 -- === Pretty printer === --
@@ -51,7 +56,8 @@ instance PrettyPrinter [LessDecl] where
 
 instance PrettyPrinter LessDecl where
   pretty = \case
-    LessDef t v -> t <> ": " <> pretty v <> ";"
+    LessDefDecl     t v -> t <> ": " <> pretty v <> ";"
+    LessSectionDecl s d -> s <> " {\n" <> pretty d <> "\n}" 
 
 instance PrettyPrinter LessVal where
   pretty = \case

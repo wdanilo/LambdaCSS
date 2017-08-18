@@ -13,20 +13,20 @@ import Language.CSS.Hss
 
 
 
--- style :: SectionBody
--- style = ".config-menu" $ do
---   position := relative
---   border   := 0
---   padding  := 0
---
---   ".nav" > li $ do
---     border := 0
-
 style :: SectionBody
-style = do
+style = ".config-menu" $ do
   position := relative
   border   := 0
   padding  := 0
+
+  ".nav" > li $ do
+    border := 0
+
+-- style :: SectionBody
+-- style = do
+--   position := relative
+--   border   := 0
+--   padding  := 0
 
 -- test :: Free (ListCons Int) ()
 -- test = do
@@ -36,5 +36,5 @@ style = do
 
 main :: IO ()
 main = do
-  pprint style
+  -- pprint style
   putStrLn $ convert $ render @Pretty @Less $ toList style
