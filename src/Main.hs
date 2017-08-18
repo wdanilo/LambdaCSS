@@ -72,30 +72,40 @@ scaledIconStyle scale = do
     marginLeft    := round2 (fss * iconOffset)
     verticalAlign := middle
 
+-- setColor :: SectionBody
+-- setColor = do
+
 
 menuItemOffset = marginOf #item * 2 + (fontSizeOf #base)
 
-test :: SectionBody
-test = ".config-menu" $ do
-  position   := relative
-  marginLeft := marginOf #panel
-  minWidth   := uiSize * 14 -- FIXME
-  maxWidth   := uiSize * 20 -- FIXME
-  background := none
-  border     := 0
-  padding    := 0
+root :: SectionBody
+root = do
+  -- ".settings-view" $ do
 
-  ".nav" > li $ do
-    borderRadius := 0
-    border       := 0
+    ------------------
+    -- === Menu === --
+    ------------------
 
-    ".icon" $ do
-      padding    := 0
-      fontSize   := fontSizeOf #base
-      marginLeft := marginOf #item
-      lineHeight := menuItemOffset
-      background := none !important
-      iconStyle
+  ".config-menu" $ do
+    position   := relative
+    marginLeft := marginOf #panel
+    minWidth   := uiSize * 14 -- FIXME
+    maxWidth   := uiSize * 20 -- FIXME
+    background := none
+    border     := 0
+    padding    := 0
+
+    ".nav" > li $ do
+      borderRadius := 0
+      border       := 0
+
+      ".icon" $ do
+        padding    := 0
+        fontSize   := fontSizeOf #base
+        marginLeft := marginOf #item
+        lineHeight := menuItemOffset
+        background := none !important
+        iconStyle
 
 
 
@@ -116,4 +126,4 @@ test = ".config-menu" $ do
 main :: IO ()
 main = do
   -- pprint style
-  putStrLn $ convert $ render @Pretty @Less $ toList test
+  putStrLn $ convert $ render @Pretty @Less $ toList root

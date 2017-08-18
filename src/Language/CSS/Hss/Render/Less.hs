@@ -67,6 +67,7 @@ instance Convertible Selector Text where
     SimpleSelector a -> a
     SubSelector l r  -> convert l <> " > " <> convert r
 
+
 ----------------------------
 -- === Pretty printer === --
 ----------------------------

@@ -59,6 +59,14 @@ instance t~s => Convertible (FreeList t a) [s] where
 instance Show t => Show (FreeList t a) where show = show . toList
 
 
+--------------------
+-- === Color === ---
+--------------------
+
+data Tone
+  = RGB Rational Rational Rational
+
+
 
 ------------------------
 -- === CSS Values === --
@@ -116,7 +124,7 @@ instance Enum Number where
   toEnum   = Number mempty . toEnum
 
 instance Fractional Number where
-  fromRational = Number mempty 
+  fromRational = Number mempty
   Number u a / Number u' a' = Number u (a / a') -- FIXME: Handle units
 
 
