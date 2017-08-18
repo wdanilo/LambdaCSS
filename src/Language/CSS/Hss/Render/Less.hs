@@ -36,10 +36,10 @@ data LessDecl
   deriving (Show)
 
 
-toAST :: [Decl] -> [LessDecl]
+toAST :: [Decl Identity] -> [LessDecl]
 toAST = fmap convert
 
-instance Convertible Decl LessDecl where
+instance Convertible (Decl Identity) LessDecl where
   convert = \case
     DefDecl     (Def name val) -> LessDefDecl name (convert val)
     SectionDecl (Section s b)  -> LessSectionDecl (convert s) (convert <$> toList b)

@@ -86,26 +86,26 @@ root = do
     -- === Menu === --
     ------------------
 
-  ".config-menu" $ do
-    position   := relative
-    marginLeft := marginOf #panel
-    minWidth   := uiSize * 14 -- FIXME
-    maxWidth   := uiSize * 20 -- FIXME
-    background := none
-    border     := 0
-    padding    := 0
+    ".config-menu" $ do
+      position   =: relative
+      marginLeft =: marginOf #panel
+      minWidth   =: uiSize * 14 -- FIXME
+      maxWidth   =: uiSize * 20 -- FIXME
+      background =: none
+      border     =: 0
+      padding    =: 0
 
-    ".nav" > li $ do
-      borderRadius := 0
-      border       := 0
+      ".nav" > li $ do
+        borderRadius =: 0
+        border       =: 0
 
-      ".icon" $ do
-        padding    := 0
-        fontSize   := fontSizeOf #base
-        marginLeft := marginOf #item
-        lineHeight := menuItemOffset
-        background := none !important
-        iconStyle
+        ".icon" $ do
+          padding    =: 0
+          fontSize   =: fontSizeOf #base
+          marginLeft =: marginOf #item
+          lineHeight =: menuItemOffset
+          background =: none !important
+          -- iconStyle
 
 
 
