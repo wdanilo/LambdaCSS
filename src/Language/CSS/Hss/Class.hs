@@ -8,11 +8,13 @@ import qualified Prelude as P
 import Prologue hiding ((>))
 import Control.Monad.Free
 
-import           Data.Map.Strict (Map)
-import qualified Data.Map.Strict as Map
-import           Data.Set        (Set)
-import qualified Data.Set        as Set
-import qualified Control.Lens    as Lens
+import           Data.Map.Strict    (Map)
+import qualified Data.Map.Strict    as Map
+import           Data.IntMap.Strict (IntMap)
+import qualified Data.IntMap.Strict as IntMap
+import           Data.Set           (Set)
+import qualified Data.Set           as Set
+import qualified Control.Lens       as Lens
 import Prelude (round)
 
 
@@ -174,6 +176,13 @@ data Val = Val
 
 makeLenses ''Val
 
+data Expr
+  = ExprVal   Val
+  | ExprThunk Thunk
+
+newtype Thunk = Thunk Int deriving (Num, Show)
+type ThunkMap = IntMap Thunk
+
 (!) :: Val -> ValFlag -> Val
 (!) v f = v & valFlags %~ Set.insert f
 
@@ -209,17 +218,27 @@ number = val .  ValNum
 txt    = val .  ValTxt
 app    = val .: ValApp
 
-numApp :: Text -> ([Number] -> Number) -> [Val] -> Val
-numApp n f args = case sequence (tryToNumber <$> args) of
-  Just args' -> number $ f args'
-  Nothing    -> app n args
+-- numApp :: Text -> ([Number] -> Number) -> [Val] -> Val
+-- numApp n f args = case sequence (tryToNumber <$> args) of
+--   Just args' -> number $ f args'
+--   Nothing    -> app n args
 
-numApp1 :: Text -> (Number -> Number)                     -> Val -> Val
-numApp2 :: Text -> (Number -> Number -> Number)           -> Val -> Val -> Val
-numApp3 :: Text -> (Number -> Number -> Number -> Number) -> Val -> Val -> Val -> Val
-numApp1 n f t1       = numApp n (\[s1]         -> f s1)       [t1]
-numApp2 n f t1 t2    = numApp n (\[s1, s2]     -> f s1 s2)    [t1, t2]
-numApp3 n f t1 t2 t3 = numApp n (\[s1, s2, s3] -> f s1 s2 s3) [t1, t2, t3]
+-- numApp1 :: Text -> (Number -> Number)                     -> Val -> Val
+-- numApp2 :: Text -> (Number -> Number -> Number)           -> Val -> Val -> Val
+-- numApp3 :: Text -> (Number -> Number -> Number -> Number) -> Val -> Val -> Val -> Val
+-- numApp1 n f t1       = numApp n (\[s1]         -> f s1)       [t1]
+-- numApp2 n f t1 t2    = numApp n (\[s1, s2]     -> f s1 s2)    [t1, t2]
+-- numApp3 n f t1 t2 t3 = numApp n (\[s1, s2, s3] -> f s1 s2 s3) [t1, t2, t3]
+
+app1 :: Text -> Val -> Val
+app2 :: Text -> Val -> Val -> Val
+app3 :: Text -> Val -> Val -> Val -> Val
+app1 n t1       = app n [t1]
+app2 n t1 t2    = app n [t1, t2]
+app3 n t1 t2 t3 = app n [t1, t2, t3]
+
+
+-- data Thunks = Map Text Value
 
 
 -- === Instances === --
@@ -236,20 +255,20 @@ instance IsString Val where
 
 instance Num Val where
   fromInteger = number . fromInteger
-  (+)         = numApp2 "+" (+)
-  (-)         = numApp2 "-" (-)
-  (*)         = numApp2 "*" (*)
-  abs         = numApp1 "abs" abs
-  signum      = numApp1 "signum" signum
+  (+)         = app2 "+"
+  (-)         = app2 "-"
+  (*)         = app2 "*"
+  abs         = app1 "abs"
+  signum      = app1 "signum"
 
 instance Convertible Number Val where convert = number
 
 instance Fractional Val where
   fromRational = number . fromRational
-  (/)          = numApp2 "/" (/)
+  (/)          = app2 "/"
 
 instance RealFrac2 Val where
-  round2 = numApp1 "round" round2
+  round2 = app1 "round"
 
 ----------------------------
 -- === CSS structures === --
@@ -294,7 +313,6 @@ infixl 0 %=
 (%=) :: [Text] -> Val -> SectionBody
 ts %= v = sequence_ $ (:= v) <$> ts
 
--- === CSS attributes === --
 
 
 
