@@ -7,7 +7,7 @@ module Main where
 import qualified Prelude as P
 import Prologue hiding ((>), none, (%=))
 import Control.Monad.Free
-import qualified Main2 as M2
+-- import qualified Main2 as M2
 
 import Language.CSS.Hss
 
@@ -125,6 +125,6 @@ root = do
 
 main :: IO ()
 main = do
-  M2.test
+  -- M2.test
   -- pprint style
-  -- putStrLn $ convert $ render @Pretty @Less $ toList root
+  putStrLn $ convert $ render @Pretty @Less $ toList root

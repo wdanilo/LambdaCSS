@@ -6,7 +6,7 @@ module Language.CSS.Hss.Class where
 
 import qualified Prelude as P
 import Prologue hiding ((>))
-import Control.Monad.Free
+-- import Control.Monad.Free
 
 import           Data.Map.Strict    (Map)
 import qualified Data.Map.Strict    as Map
@@ -16,6 +16,14 @@ import           Data.Set           (Set)
 import qualified Data.Set           as Set
 import qualified Control.Lens       as Lens
 import Prelude (round)
+
+
+import Control.Monad.Trans.Free hiding (wrap)
+
+instance (PrimMonad m, Functor a) => PrimMonad (FreeT a m) where
+  type PrimState (FreeT a m) = PrimState m
+  primitive = lift . primitive ; {-# INLINE primitive #-}
+
 
 
 class IsSubSelector a b where
@@ -33,32 +41,37 @@ instance {-# OVERLAPPABLE #-} Ord a => IsSubSelector a Bool where
 
 -- === Definition === --
 
-newtype FreeList t a = FreeList (Free (ListCons t) a)
-  deriving (Functor, Applicative, Monad)
+type    FreeList  t     = FreeListT t Identity
+newtype FreeListT t m a = FreeListT (FreeT (ListCons t) m a) deriving (Applicative, Functor, Monad, MonadFree (ListCons t), MonadTrans)
 
 data ListCons a next = ListCons a next
-  deriving (Show, Functor)
+  deriving (Show, Functor, Foldable, Traversable)
 
-makeLenses ''FreeList
+makeLenses ''FreeListT
 
 
 -- === Utils === --
 
-liftToFreeList :: a -> FreeList a ()
-liftToFreeList a = FreeList $ liftF (ListCons a ())
+liftToFreeList :: MonadFree (ListCons a) m => a -> m ()
+liftToFreeList a = liftF $ ListCons a ()
 
 
 -- === Instances === --
+
+instance PrimMonad m => PrimMonad (FreeListT t m) where
+  type PrimState (FreeListT t m) = PrimState m
+  primitive = lift . primitive ; {-# INLINE primitive #-}
 
 type instance Item (FreeList t a) = t
 instance t~s => Convertible (FreeList t a) [s] where
   convert = toList . unwrap where
     toList :: Free (ListCons t) a -> [t]
-    toList = \case
+    toList (FreeT (Identity f)) = case f of
       Pure _ -> mempty
       Free (ListCons t f) -> t : toList f
 
 instance Show t => Show (FreeList t a) where show = show . toList
+
 
 
 --------------------
@@ -307,7 +320,7 @@ sectionDecl = decl . SectionDecl
 
 infixl 0 :=
 pattern (:=) :: Text -> Val -> SectionBody
-pattern (:=){t, v} = SectionBody (FreeList (Free (ListCons (DefDecl (Def t v)) (Pure ()))))
+pattern (:=){t, v} = SectionBody (FreeListT (FreeT (Identity (Free (ListCons (DefDecl (Def t v)) (FreeT (Identity (Pure ()))))))))
 
 infixl 0 %=
 (%=) :: [Text] -> Val -> SectionBody
