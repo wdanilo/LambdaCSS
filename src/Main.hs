@@ -5,7 +5,7 @@
 module Main where
 
 import qualified Prelude as P
-import Prologue hiding ((>), none)
+import Prologue hiding ((>), none, (%=))
 import Control.Monad.Free
 
 
@@ -32,6 +32,9 @@ fontMap = fromList
 fontOf :: Text -> Font
 fontOf t = fontMap ^. ix t
 
+fontSizeOf :: Text -> Val
+fontSizeOf t = fontOf t ^. size
+
 marginMap :: Map Text Number
 marginMap = fromList
   [ (#base  , base)
@@ -53,8 +56,24 @@ radiusOf t = convert $ radiusMap ^. ix t
 
 uiSize = 14px
 
+iconStyle       :: SectionBody
+scaledIconStyle :: Val -> SectionBody
 
-menuItemOffset = marginOf #item * 2 + (fontOf #base ^. size)
+iconOffset = 0.4
+iconStyle = scaledIconStyle 1.5
+scaledIconStyle scale = do
+  let fss = round2 (fontSizeOf #base * scale)
+  "&::before" $ do
+    [ fontSize,
+      width,
+      height,
+      lineHeight] %= fss
+    top           := 0
+    marginLeft    := round2 (fss * iconOffset)
+    verticalAlign := middle
+
+
+menuItemOffset = marginOf #item * 2 + (fontSizeOf #base)
 
 test :: SectionBody
 test = ".config-menu" $ do
@@ -72,10 +91,11 @@ test = ".config-menu" $ do
 
     ".icon" $ do
       padding    := 0
-      fontSize   := fontOf #base ^. size
+      fontSize   := fontSizeOf #base
       marginLeft := marginOf #item
       lineHeight := menuItemOffset
       background := none !important
+      iconStyle
 
 
 

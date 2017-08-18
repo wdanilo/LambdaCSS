@@ -142,4 +142,7 @@ module Language.CSS.Hss.Elements where
   wbr           = "wbr"
   xmp           = "xmp"
 
+
+
   none          = "none"
+  middle        = "middle"

@@ -13,6 +13,7 @@ import qualified Data.Map.Strict as Map
 import           Data.Set        (Set)
 import qualified Data.Set        as Set
 import qualified Control.Lens    as Lens
+import Prelude (round)
 
 
 class IsSubSelector a b where
@@ -90,7 +91,11 @@ vmax    = Unit #vmax
 
 instance Show Unit where show = convert . unwrap
 
-data Number = Number UnitMap Double deriving (Show)
+data Number = Number
+  { _unitMap :: UnitMap
+  , _rawNum  :: Double
+  } deriving (Show, Eq)
+makeLenses ''Number
 
 instance Num Number where
   fromInteger               = Number mempty . fromInteger
@@ -99,6 +104,40 @@ instance Num Number where
   Number u a - Number u' a' = if u == u then Number u (a + a') else error $ "Cannot subtract numbers with different units " <> show u <> " and " <> show u'
   abs    (Number u a)       = Number u (abs a)
   signum (Number _ a)       = Number mempty (signum a)
+
+instance Ord Number where
+  compare = compare `on` view rawNum -- FIXME: Handle units
+
+instance Real Number where
+  toRational (Number _ a) = toRational a
+
+instance Enum Number where
+  fromEnum = fromEnum . view rawNum
+  toEnum   = Number mempty . toEnum
+
+instance Fractional Number where
+  fromRational = Number mempty . fromRational
+  Number u a / Number u' a' = Number u (a / a') -- FIXME: Handle units
+
+
+instance RealFrac Number where
+  properFraction (Number u a) = Number u <$> properFraction a -- FIXME: We lose information about units here
+  truncate                    = truncate . view rawNum -- FIXME: We lose information about units here
+  round                       = round    . view rawNum -- FIXME: We lose information about units here
+  ceiling                     = ceiling  . view rawNum -- FIXME: We lose information about units here
+  floor                       = floor    . view rawNum -- FIXME: We lose information about units here
+
+
+class RealFrac2 a where
+  round2 :: a -> a
+
+instance RealFrac2 Number where
+  round2 = rawNum %~ convert @Integer . round
+
+
+
+-- instance Integral Number where
+--   quot (Number u a) (Number u' a') = Number u (quot a a') -- FIXME: Handle units
 
 instance Mempty    Number where mempty = 0
 instance Semigroup Number where (<>)   = (+)
@@ -197,6 +236,12 @@ instance Num Val where
 
 instance Convertible Number Val where convert = number
 
+instance Fractional Val where
+  fromRational = number . fromRational
+  (/)          = numApp2 "/" (/)
+
+instance RealFrac2 Val where
+  round2 = numApp1 "round" round2
 
 ----------------------------
 -- === CSS structures === --
@@ -237,6 +282,9 @@ infixl 0 :=
 pattern (:=) :: Text -> Val -> SectionBody
 pattern (:=){t, v} = SectionBody (FreeList (Free (ListCons (DefDecl (Def t v)) (Pure ()))))
 
+infixl 0 %=
+(%=) :: [Text] -> Val -> SectionBody
+ts %= v = sequence_ $ (:= v) <$> ts
 
 -- === CSS attributes === --
 
