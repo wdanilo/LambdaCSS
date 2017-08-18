@@ -93,7 +93,10 @@ data Number = Number UnitMap Double deriving (Show)
 instance Num Number where
   fromInteger               = Number mempty . fromInteger
   Number u a * Number u' a' = Number (Map.unionWith (+) u u') (a * a')
-
+  Number u a + Number u' a' = if u == u then Number u (a + a') else error $ "Cannot add numbers with different units " <> show u <> " and " <> show u'
+  Number u a - Number u' a' = if u == u then Number u (a + a') else error $ "Cannot subtract numbers with different units " <> show u <> " and " <> show u'
+  abs    (Number u a)       = Number u (abs a)
+  signum (Number _ a)       = Number mempty (signum a)
 
 instance Mempty    Number where mempty = 0
 instance Semigroup Number where (<>)   = (+)
@@ -118,14 +121,26 @@ data Def = Def
 
 -- === Utils === --
 
+tryToNumber :: Val -> Maybe Number
+tryToNumber = \case
+  ValNum a -> Just a
+  _        -> Nothing
+
+
 var :: Text -> Val
 var = Var
 
-op :: Text -> Val -> Val -> Val
-op n l r = App n [l,r]
+numApp :: Text -> ([Number] -> Number) -> [Val] -> Val
+numApp n f args = case sequence (tryToNumber <$> args) of
+  Just args' -> ValNum $ f args'
+  Nothing    -> App n args
 
-app' :: Text -> Val -> Val
-app' n a = App n [a]
+numApp1 :: Text -> (Number -> Number)                     -> Val -> Val
+numApp2 :: Text -> (Number -> Number -> Number)           -> Val -> Val -> Val
+numApp3 :: Text -> (Number -> Number -> Number -> Number) -> Val -> Val -> Val -> Val
+numApp1 n f t1       = numApp n (\[s1]         -> f s1)       [t1]
+numApp2 n f t1 t2    = numApp n (\[s1, s2]     -> f s1 s2)    [t1, t2]
+numApp3 n f t1 t2 t3 = numApp n (\[s1, s2, s3] -> f s1 s2 s3) [t1, t2, t3]
 
 
 -- === Instances === --
@@ -142,11 +157,11 @@ instance IsString Val where
 
 instance Num Val where
   fromInteger = ValNum . fromInteger
-  (+)         = op "+"
-  (-)         = op "-"
-  (*)         = op "*"
-  abs         = app' "abs"
-  signum      = app' "signum"
+  (+)         = numApp2 "+" (+)
+  (-)         = numApp2 "-" (-)
+  (*)         = numApp2 "*" (*)
+  abs         = numApp1 "abs" abs
+  signum      = numApp1 "signum" signum
 
 instance Convertible Number Val where convert = ValNum
 
