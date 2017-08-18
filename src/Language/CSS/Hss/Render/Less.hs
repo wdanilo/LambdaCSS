@@ -10,7 +10,7 @@ import           Data.Set        (Set)
 import qualified Data.Set        as Set
 import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
-
+import           Data.Ratio      (numerator, denominator)
 
 
 
@@ -60,7 +60,7 @@ instance Convertible RawVal LessRawVal where
       [] -> rawNum
       [(u,i)] -> if i == 1 then rawNum <> show u else error $ "Cannot generate non singleton unit value " <> show u <> "^" <> show i
       ls -> error "Cannot generate non singleton unit value " <> show ls
-      where rawNum = if isIntegral a then show (round a) else show a
+      where rawNum = if denominator a == 1 then show (numerator a) else show (round a :: Int)
 
 instance Convertible Selector Text where
   convert = \case

@@ -93,7 +93,7 @@ instance Show Unit where show = convert . unwrap
 
 data Number = Number
   { _unitMap :: UnitMap
-  , _rawNum  :: Double
+  , _rawNum  :: Rational
   } deriving (Show, Eq)
 makeLenses ''Number
 
@@ -116,7 +116,7 @@ instance Enum Number where
   toEnum   = Number mempty . toEnum
 
 instance Fractional Number where
-  fromRational = Number mempty . fromRational
+  fromRational = Number mempty 
   Number u a / Number u' a' = Number u (a / a') -- FIXME: Handle units
 
 
