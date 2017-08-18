@@ -4,8 +4,8 @@
 
 module Main where
 
-import qualified Prologue as P
-import Prologue hiding ((>))
+import qualified Prelude as P
+import Prologue hiding ((>), none)
 import Control.Monad.Free
 
 
@@ -15,28 +15,67 @@ import qualified Data.Map as Map
 import           Data.Map (Map)
 
 
+data Font = Font { _size :: Val }
+makeLenses ''Font
 
+instance Mempty    Font where mempty  = Font (12 px)
+instance Semigroup Font where (<>)    = undefined -- FIXME
+instance P.Monoid  Font where mempty  = mempty
+                              mappend = (<>)
+
+fontMap :: Map Text Font
+fontMap = fromList
+  [ (#base    , Font (12px))
+  , (#section , Font (36px))
+  ]
+
+fontOf :: Text -> Font
+fontOf t = fontMap ^. ix t
 
 marginMap :: Map Text Number
-marginMap = mempty
-  & Map.insert #base  base
-  & Map.insert #panel (base * 2)
-  where base = 20
+marginMap = fromList
+  [ (#base  , base)
+  , (#panel , base * 2)
+  , (#item  , base)
+  ]
+  where base = 20px
 
-margin :: Convertible Number t => Text -> t
-margin t = convert $ marginMap ^. ix t
+radiusMap :: Map Text Number
+radiusMap = fromList
+  [ (#button , 8px)
+  ]
+
+marginOf :: Convertible Number t => Text -> t
+marginOf t = convert $ marginMap ^. ix t
+
+radiusOf :: Convertible Number t => Text -> t
+radiusOf t = convert $ radiusMap ^. ix t
 
 uiSize = 14px
 
-style :: SectionBody
-style = ".config-menu" $ do
+
+menuItemOffset = marginOf #item * 2 + (fontOf #base ^. size)
+
+test :: SectionBody
+test = ".config-menu" $ do
   position   := relative
-  marginLeft := margin #panel
-  border     := uiSize * 14
+  marginLeft := marginOf #panel
+  minWidth   := uiSize * 14 -- FIXME
+  maxWidth   := uiSize * 20 -- FIXME
+  background := none
+  border     := 0
   padding    := 0
 
   ".nav" > li $ do
-    border := 0
+    borderRadius := 0
+    border       := 0
+
+    ".icon" $ do
+      padding    := 0
+      fontSize   := fontOf #base ^. size
+      marginLeft := marginOf #item
+      lineHeight := menuItemOffset
+      -- background := none !important
 
 
 
@@ -57,4 +96,4 @@ style = ".config-menu" $ do
 main :: IO ()
 main = do
   -- pprint style
-  putStrLn $ convert $ render @Pretty @Less $ toList style
+  putStrLn $ convert $ render @Pretty @Less $ toList test

@@ -104,7 +104,10 @@ instance P.Monoid  Number where mempty  = mempty
                                 mappend = mappend
 
 instance Num (Unit -> Val) where
-  fromInteger i = ValNum . flip Number (fromInteger i) . flip Map.singleton 1
+  fromInteger = ValNum .: fromInteger
+
+instance Num (Unit -> Number) where
+  fromInteger i = flip Number (fromInteger i) . flip Map.singleton 1
 
 data Val
   = Var Text
@@ -208,13 +211,7 @@ pattern (:=){t, v} = SectionBody (FreeList (Free (ListCons (DefDecl (Def t v)) (
 
 -- === CSS attributes === --
 
-li = "li"
 
-border     = "border"
-padding    = "padding"
-position   = "position"
-relative   = "relative"
-marginLeft = "margin-left"
 
 -- === Instances === --
 
