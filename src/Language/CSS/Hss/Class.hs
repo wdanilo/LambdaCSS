@@ -1,6 +1,7 @@
-{-# LANGUAGE NoMonomorphismRestriction   #-}
-{-# LANGUAGE PatternSynonyms   #-}
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE NoMonomorphismRestriction #-}
+{-# LANGUAGE PatternSynonyms           #-}
+{-# LANGUAGE OverloadedStrings         #-}
+{-# LANGUAGE UndecidableInstances      #-}
 
 module Language.CSS.Hss.Class where
 
@@ -289,8 +290,9 @@ instance RealFrac2 Val where
 
 -- === Definition === --
 
-type    SectionBody    = SectionBody' ()
-newtype SectionBody' a = SectionBody (FreeList Decl a) deriving (Show, Functor, Applicative, Monad)
+type    SectionBody       = SectionBody' ()
+type    SectionBody'      = SectionBodyT' Identity
+newtype SectionBodyT' m a = SectionBodyT (FreeListT Decl m a) deriving (Functor, Applicative, Monad)
 
 data Decl = DefDecl     Def
           | SectionDecl Section
@@ -306,28 +308,39 @@ data Section = Section
   , _body     :: SectionBody
   } deriving (Show)
 
-makeLenses ''Section
+
 -- Lens.makeWrapped ''SectionBody
 
 
 -- === Utils === --
 
 decl :: Decl -> SectionBody
-decl = SectionBody . liftToFreeList
+decl = SectionBodyT . liftToFreeList
 
 sectionDecl :: Section -> SectionBody
 sectionDecl = decl . SectionDecl
 
 infixl 0 :=
 pattern (:=) :: Text -> Val -> SectionBody
-pattern (:=){t, v} = SectionBody (FreeListT (FreeT (Identity (Free (ListCons (DefDecl (Def t v)) (FreeT (Identity (Pure ()))))))))
+pattern (:=){t, v} = SectionBodyT (FreeListT (FreeT (Identity (Free (ListCons (DefDecl (Def t v)) (FreeT (Identity (Pure ()))))))))
 
 infixl 0 %=
 (%=) :: [Text] -> Val -> SectionBody
 ts %= v = sequence_ $ (:= v) <$> ts
 
 
+-- (=:) :: Text -> Val ->
+-- data Foo m a = Foo a (m a)
 
+-- pattern HeadC x <- x:xs where
+--   HeadC x = [x]
+
+-- pattern (:=){t, v} = t : v
+-- pattern (:==) :: Monad m => a -> a -> Foo m a
+-- pattern t :== v <- Foo t (Identity v) where
+--   t :== v = Foo t (Identity v)
+
+-- (:==) = const
 
 -- === Instances === --
 
@@ -344,15 +357,17 @@ instance (a ~ Selector)         => IsSubSelector a Selector                     
 instance (a ~ Selector)         => IsSubSelector a (SectionBody -> Section)        where (>) = Section .: (>)
 instance (a ~ Selector, t ~ ()) => IsSubSelector a (SectionBody -> SectionBody' t) where (>) = (sectionDecl .: Section) .: (>)
 
-instance Wrapped (SectionBody' a) where
-  type Unwrapped (SectionBody' a) = FreeList Decl a
-  _Wrapped' = iso (\(SectionBody a) -> a) SectionBody
+instance Wrapped (SectionBodyT' m a) where
+  type Unwrapped (SectionBodyT' m a) = FreeListT Decl m a
+  _Wrapped' = iso (\(SectionBodyT a) -> a) SectionBodyT
+
+deriving instance Show (Unwrapped (SectionBodyT' m a)) => Show (SectionBodyT' m a)
 
 type instance Item SectionBody = Decl
 instance Convertible SectionBody [Decl] where
   convert = convert . unwrap
 
-
+makeLenses ''Section
 ----------------------
 -- === Renderer === --
 ----------------------
