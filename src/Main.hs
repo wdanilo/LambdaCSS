@@ -11,13 +11,29 @@ import Control.Monad.Free
 
 import Language.CSS.Hss
 
+import qualified Data.Map as Map
+import           Data.Map (Map)
 
+
+
+
+marginMap :: Map Text Number
+marginMap = mempty
+  & Map.insert #base  base
+  & Map.insert #panel (base * 2)
+  where base = 20
+
+margin :: Convertible Number t => Text -> t
+margin t = convert $ marginMap ^. ix t
+
+uiSize = 14px
 
 style :: SectionBody
 style = ".config-menu" $ do
-  position := relative
-  border   := 0
-  padding  := 0
+  position   := relative
+  marginLeft := margin #panel
+  border     := uiSize * 14
+  padding    := 0
 
   ".nav" > li $ do
     border := 0

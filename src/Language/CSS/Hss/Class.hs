@@ -4,11 +4,13 @@
 
 module Language.CSS.Hss.Class where
 
-import qualified Prologue as P
+import qualified Prelude as P
 import Prologue hiding ((>))
 import Control.Monad.Free
 
-import qualified Control.Lens as Lens
+import           Data.Map.Strict (Map)
+import qualified Data.Map.Strict as Map
+import qualified Control.Lens    as Lens
 
 
 class IsSubSelector a b where
@@ -61,9 +63,49 @@ instance Show t => Show (FreeList t a) where show = show . toList
 
 -- === Definition === --
 
+newtype Unit    = Unit Text deriving (Ord, Eq)
+type    UnitMap = Map Unit Int
+
+makeLenses ''Unit
+
+em, ex, percent, px, cm, mm, in', pt, pc, ch, rem, vh, vw, vmin, vmax :: Unit
+em      = Unit #em
+ex      = Unit #ex
+percent = Unit #percent
+px      = Unit #px
+cm      = Unit #cm
+mm      = Unit #mm
+in'     = Unit #in
+pt      = Unit #pt
+pc      = Unit #pc
+ch      = Unit #ch
+rem     = Unit #rem
+vh      = Unit #vh
+vw      = Unit #vw
+vmin    = Unit #vmin
+vmax    = Unit #vmax
+
+
+instance Show Unit where show = convert . unwrap
+
+data Number = Number UnitMap Double deriving (Show)
+
+instance Num Number where
+  fromInteger               = Number mempty . fromInteger
+  Number u a * Number u' a' = Number (Map.unionWith (+) u u') (a * a')
+
+
+instance Mempty    Number where mempty = 0
+instance Semigroup Number where (<>)   = (+)
+instance P.Monoid  Number where mempty  = mempty
+                                mappend = mappend
+
+instance Num (Unit -> Val) where
+  fromInteger i = ValNum . flip Number (fromInteger i) . flip Map.singleton 1
+
 data Val
   = Var Text
-  | Num Double
+  | ValNum Number
   | Txt Text
   | App Text [Val]
   deriving (Show)
@@ -99,13 +141,14 @@ instance IsString Val where
   fromString = Txt . fromString
 
 instance Num Val where
-  fromInteger = Num . fromInteger
+  fromInteger = ValNum . fromInteger
   (+)         = op "+"
   (-)         = op "-"
-  (*)         = op "+"
+  (*)         = op "*"
   abs         = app' "abs"
   signum      = app' "signum"
 
+instance Convertible Number Val where convert = ValNum
 
 
 ----------------------------
@@ -143,6 +186,7 @@ decl = SectionBody . liftToFreeList
 sectionDecl :: Section -> SectionBody
 sectionDecl = decl . SectionDecl
 
+infixl 0 :=
 pattern (:=) :: Text -> Val -> SectionBody
 pattern (:=){t, v} = SectionBody (FreeList (Free (ListCons (DefDecl (Def t v)) (Pure ()))))
 
@@ -151,11 +195,11 @@ pattern (:=){t, v} = SectionBody (FreeList (Free (ListCons (DefDecl (Def t v)) (
 
 li = "li"
 
-border   = "border"
-padding  = "padding"
-position = "position"
-relative = "relative"
-
+border     = "border"
+padding    = "padding"
+position   = "position"
+relative   = "relative"
+marginLeft = "margin-left"
 
 -- === Instances === --
 

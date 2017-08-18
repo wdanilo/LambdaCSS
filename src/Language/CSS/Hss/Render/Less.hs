@@ -5,6 +5,9 @@ module Language.CSS.Hss.Render.Less where
 import Prologue
 import Language.CSS.Hss.Class
 
+import           Data.Map.Strict (Map)
+import qualified Data.Map.Strict as Map
+
 
 
 ----------------------
@@ -13,7 +16,7 @@ import Language.CSS.Hss.Class
 
 data LessVal
   = LessVar Text
-  | LessNum Double
+  | LessNum Text
   | LessTxt Text
   | LessApp Text [LessVal]
   deriving (Show)
@@ -36,9 +39,13 @@ instance Convertible Decl LessDecl where
 instance Convertible Val LessVal where
   convert = \case
     Var   a -> LessVar a
-    Num   a -> LessNum a
     Txt   a -> LessTxt a
     App t a -> LessApp t (convert <$> a)
+    ValNum (Number us a) -> LessNum . convert $ case Map.assocs us of
+      [] -> rawNum
+      [(u,i)] -> if i == 1 then rawNum <> show u else error $ "Cannot generate non singleton unit value " <> show u <> "^" <> show i
+      ls -> error "Cannot generate non singleton unit value " <> show ls
+      where rawNum = if isIntegral a then show (round a) else show a
 
 instance Convertible Selector Text where
   convert = \case
@@ -57,12 +64,12 @@ instance PrettyPrinter [LessDecl] where
 instance PrettyPrinter LessDecl where
   pretty = \case
     LessDefDecl     t v -> t <> ": " <> pretty v <> ";"
-    LessSectionDecl s d -> s <> " {\n" <> pretty d <> "\n}" 
+    LessSectionDecl s d -> s <> " {\n" <> pretty d <> "\n}"
 
 instance PrettyPrinter LessVal where
   pretty = \case
     LessVar   a -> a
-    LessNum   a -> convert $ show a
+    LessNum   a -> a
     LessTxt   a -> a
     LessApp t a -> t <> " " <> intercalate " " (pretty <$> a)
 
