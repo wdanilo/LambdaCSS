@@ -9,6 +9,7 @@ import qualified Prelude as P
 import Prologue hiding (assign)
 -- import Control.Monad.Free
 
+import           Control.Monad.State.Layered
 import           Data.Map.Strict    (Map)
 import qualified Data.Map.Strict    as Map
 import           Data.IntMap.Strict (IntMap)
@@ -114,8 +115,15 @@ instance Show Unit where show = convert . unwrap
 data Number = Number
   { _unitMap :: UnitMap
   , _rawNum  :: Rational
-  } deriving (Show, Eq)
+  } deriving (Eq)
 makeLenses ''Number
+
+instance Show Number where
+  showsPrec d (Number u r) = showParen' d
+    $ showString "Number "
+    . showsPrec' (toList u)
+    . showString " "
+    . showsPrec' (convertTo @Double r)
 
 instance Num Number where
   fromInteger               = Number mempty . fromInteger
@@ -172,61 +180,92 @@ important :: ValFlag
 important = FlagImportant
 
 
+newtype Thunk = Thunk Int deriving (Num, Show)
+type ThunkMap = IntMap Val
+
+
+type MonadThunk a = MonadState ThunkMap a
+
+
+newThunk :: MonadThunk m => Val -> m Thunk
+newThunk v = modify @ThunkMap go where
+  go m = (wrap idx, IntMap.insert idx v m) where
+    idx = IntMap.size m
+
+
 data RawVal
-  = ValVar Text
-  | ValNum Number
-  | ValTxt Text
-  | ValApp Text [Val]
+  = Var Text
+  | Num Number
+  | Txt Text
+  | App Text [Thunk]
   deriving (Show)
 
 data Val = Val
   { _valFlags :: Set ValFlag
   , _rawVal   :: RawVal
-  } deriving (Show)
+  }
 
 makeLenses ''Val
+makeLenses ''Thunk
 
-data Expr
-  = ExprVal   Val
-  | ExprThunk Thunk
+instance Show Val where
+  showsPrec d (Val f r) = showParen' d
+    $ showString "Val "
+    . showsPrec' (toList f)
+    . showString " "
+    . showsPrec' r
 
-newtype Thunk = Thunk Int deriving (Num, Show)
-type ThunkMap = IntMap Thunk
+-- data Expr
+--   = ExprVal   Val
+--   | ExprThunk Thunk
+
+
 
 (!) :: Val -> ValFlag -> Val
 (!) v f = v & valFlags %~ Set.insert f
 
 data Def = Def
   { _name :: Text
-  , _val  :: Val
+  , _val  :: Thunk
   }
 
 
-instance Num (Unit -> Val) where
-  fromInteger = number .: fromInteger
-
-instance Num (Unit -> Number) where
-  fromInteger i = flip Number (fromInteger i) . flip Map.singleton 1
+-- instance Num (Unit -> Val) where
+--   fromInteger = number .: fromInteger
+--
+-- instance Num (Unit -> Number) where
+--   fromInteger i = flip Number (fromInteger i) . flip Map.singleton 1
 
 -- === Utils === --
 
-tryToNumber :: Val -> Maybe Number
-tryToNumber v = case v ^. rawVal of
-  ValNum a -> Just a
-  _        -> Nothing
+-- tryToNumber :: Val -> Maybe Number
+-- tryToNumber v = case v ^. rawVal of
+--   ValNum a -> Just a
+--   _        -> Nothing
 
 
-val :: RawVal -> Val
-val = Val mempty
+val :: MonadThunk m => RawVal -> m Thunk
+val = newThunk . Val mempty
 
-var    :: Text   -> Val
-number :: Number -> Val
-txt    :: Text   -> Val
-app    :: Text -> [Val] -> Val
-var    = val .  ValVar
-number = val .  ValNum
-txt    = val .  ValTxt
-app    = val .: ValApp
+var    :: MonadThunk m => Text   -> m Thunk
+number :: MonadThunk m => Number -> m Thunk
+txt    :: MonadThunk m => Text   -> m Thunk
+app    :: MonadThunk m => Text -> [Thunk] -> m Thunk
+var    = val .  Var
+number = val .  Num
+txt    = val .  Txt
+app    = val .: App
+
+appM   :: MonadThunk m => Text -> [m Thunk] -> m Thunk
+appM n = app n <=< sequence
+
+appM1 :: MonadThunk m => Text -> m Thunk -> m Thunk
+appM2 :: MonadThunk m => Text -> m Thunk -> m Thunk -> m Thunk
+appM3 :: MonadThunk m => Text -> m Thunk -> m Thunk -> m Thunk -> m Thunk
+appM1 n t1       = appM n [t1]
+appM2 n t1 t2    = appM n [t1, t2]
+appM3 n t1 t2 t3 = appM n [t1, t2, t3]
+
 
 -- numApp :: Text -> ([Number] -> Number) -> [Val] -> Val
 -- numApp n f args = case sequence (tryToNumber <$> args) of
@@ -240,9 +279,9 @@ app    = val .: ValApp
 -- numApp2 n f t1 t2    = numApp n (\[s1, s2]     -> f s1 s2)    [t1, t2]
 -- numApp3 n f t1 t2 t3 = numApp n (\[s1, s2, s3] -> f s1 s2 s3) [t1, t2, t3]
 
-app1 :: Text -> Val -> Val
-app2 :: Text -> Val -> Val -> Val
-app3 :: Text -> Val -> Val -> Val -> Val
+app1 :: MonadThunk m => Text -> Thunk -> m Thunk
+app2 :: MonadThunk m => Text -> Thunk -> Thunk -> m Thunk
+app3 :: MonadThunk m => Text -> Thunk -> Thunk -> Thunk -> m Thunk
 app1 n t1       = app n [t1]
 app2 n t1 t2    = app n [t1, t2]
 app3 n t1 t2 t3 = app n [t1, t2, t3]
@@ -260,27 +299,27 @@ instance Show Def where
     . showsPrec (up_prec + 1) v
     where up_prec = 5
 
-instance IsString Val where
-  fromString = txt . fromString
+-- instance IsString Val where
+--   fromString = txt . fromString
 
-instance Convertible Text Val where convert = txt
+-- instance Convertible Text Val where convert = txt
 
-instance Num Val where
-  fromInteger = number . fromInteger
-  (+)         = app2 "+"
-  (-)         = app2 "-"
-  (*)         = app2 "*"
-  abs         = app1 "abs"
-  signum      = app1 "signum"
+-- instance Num Val where
+--   fromInteger = number . fromInteger
+--   (+)         = app2 "+"
+--   (-)         = app2 "-"
+--   (*)         = app2 "*"
+--   abs         = app1 "abs"
+--   signum      = app1 "signum"
 
-instance Convertible Number Val where convert = number
+-- instance Convertible Number Val where convert = number
 
-instance Fractional Val where
-  fromRational = number . fromRational
-  (/)          = app2 "/"
-
-instance RealFrac2 Val where
-  round2 = app1 "round"
+-- instance Fractional Val where
+--   fromRational = number . fromRational
+--   (/)          = app2 "/"
+--
+-- instance RealFrac2 Val where
+--   round2 = app1 "round"
 
 
   ----------------------
@@ -337,19 +376,16 @@ joinStyleT = fmap wrap . joinFreeListT . unwrap
 
 
 
-class                         (Monad m)                       => AutoAssignment t   m where assignM :: t -> ValueT m Val -> m ()
+class                         (Monad m)                       => AutoAssignment t   m where assignM :: t -> ValueT m Thunk -> m ()
 instance {-# OVERLAPPABLE #-} (Monad m, MonadStyle m, t~Text) => AutoAssignment t   m where assignM t v = liftToFreeList =<< runValueT (DefDecl . Def t <$> v)
 instance {-# INCOHERENT #-}   (AutoAssignment t m)            => AutoAssignment [t] m where assignM t v = sequence_ $ (flip assignM v) <$> t
 
-assign :: AutoAssignment t m => t -> Val -> m ()
+assign :: AutoAssignment t m => t -> Thunk -> m ()
 assign t v = assignM t (pure v)
 
-infixl 0  =:
-infixl 0 <-:
-(=:)  :: AutoAssignment t m => t ->               Val -> m ()
-(<-:) :: AutoAssignment t m => t -> ValueT m Val -> m ()
-(=:)  = assign
-(<-:) = assignM
+infixl 0 =:
+(=:) :: AutoAssignment t m => t -> ValueT m Thunk -> m ()
+(=:) = assignM
 
 
 
@@ -383,15 +419,16 @@ makeLenses ''Section
 makeLenses ''ValueT
 
 
-instance PrimMonadIO m => Num (StyleValueT m Val) where
-  fromInteger i = fromInteger i <$ print "CREATING Integer"
-  (+)         l r = (+) <$> l <*> r
-  -- (-)         = app2 "-"
-  -- (*)         = app2 "*"
-  -- abs         = app1 "abs"
-  -- signum      = app1 "signum"
+instance MonadThunk m => Num (StyleValueT m Thunk) where
+  fromInteger = number . fromInteger
+  (+)         = appM2 "+"
+  (-)         = appM2 "-"
+  (*)         = appM2 "*"
+  abs         = appM1 "abs"
+  signum      = appM1 "signum"
 
 
+  -- number :: MonadThunk m => Number -> m Thunk
 
 ----------------------
 -- === Renderer === --
