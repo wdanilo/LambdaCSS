@@ -191,7 +191,7 @@ data Expr
   | ExprThunk Thunk
 
 newtype Thunk = Thunk Int deriving (Num, Show)
-type ThunkMap = IntMap Thunk
+type ThunkMap = IntMap Int
 
 (!) :: Val -> ValFlag -> Val
 (!) v f = v & valFlags %~ Set.insert f
@@ -281,6 +281,14 @@ instance Fractional Val where
 
 instance RealFrac2 Val where
   round2 = app1 "round"
+
+
+----------------------
+-- === ThunkMap === --
+----------------------
+
+
+
 
 ----------------------------
 -- === CSS structures === --

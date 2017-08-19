@@ -4,6 +4,7 @@
 
 module Main where
 
+import Control.Monad.State.Layered
 import qualified Prelude as P
 import Prologue hiding (none, (%=), assign)
 import Control.Monad.Free
@@ -14,6 +15,8 @@ import Language.CSS.Hss
 import qualified Data.Map as Map
 import           Data.Map (Map)
 
+import Control.Concurrent.MVar
+import System.IO.Unsafe
 
 data Font = Font { _size :: Val }
 makeLenses ''Font
@@ -59,19 +62,19 @@ uiSize = 14px
 
 iconOffset = 0.4
 
-iconStyle       :: Monad m => StyleT m ()
-scaledIconStyle :: Monad m => Val -> StyleT m ()
-iconStyle = scaledIconStyle 1.5
-scaledIconStyle scale = do
-  let fss = round2 (fontSizeOf #base * scale)
-  "&::before" $ do
-    [ fontSize,
-      width,
-      height,
-      lineHeight] =: fss
-    top           =: 0
-    marginLeft    =: round2 (fss * iconOffset)
-    verticalAlign =: middle
+-- iconStyle       :: Monad m => StyleT m ()
+-- scaledIconStyle :: Monad m => Val -> StyleT m ()
+-- iconStyle = scaledIconStyle 1.5
+-- scaledIconStyle scale = do
+--   let fss = round2 (fontSizeOf #base * scale)
+--   "&::before" $ do
+--     [ fontSize,
+--       width,
+--       height,
+--       lineHeight] =: fss
+--     top           =: 0
+--     marginLeft    =: round2 (fss * iconOffset)
+--     verticalAlign =: middle
 
 -- setColor :: Style
 -- setColor = do
@@ -79,34 +82,35 @@ scaledIconStyle scale = do
 
 menuItemOffset = marginOf #item * 2 + (fontSizeOf #base)
 
-root :: StyleT IO ()
+root :: Monad m => StyleT m ()
 root = do
-  ".settings-view" $ do
-
-    ------------------
-    -- === Menu === --
-    ------------------
-
-    ".config-menu" $ do
-      position =: relative
-      marginLeft =: marginOf #panel
-      minWidth   =: uiSize * 14 -- FIXME
-      maxWidth   =: uiSize * 20 -- FIXME
-      background =: none
-      border     =: 0
-      padding    =: 0
-
-      ".nav > li" $ do
-        borderRadius =: 0
-        border       =: 0
-
-        ".icon" $ do
-          padding    =: 0
-          fontSize   =: fontSizeOf #base
-          marginLeft =: marginOf #item
-          lineHeight =: menuItemOffset
-          background =: none !important
-          iconStyle
+  position =: 2
+  -- ".settings-view" $ do
+  --
+  --   ------------------
+  --   -- === Menu === --
+  --   ------------------
+  --
+  --   ".config-menu" $ do
+  --     position =: relative
+  --     marginLeft =: marginOf #panel
+  --     minWidth   =: uiSize * 14 -- FIXME
+  --     maxWidth   =: uiSize * 20 -- FIXME
+  --     background =: none
+  --     border     =: 0
+  --     padding    =: 0
+  --
+  --     ".nav > li" $ do
+  --       borderRadius =: 0
+  --       border       =: 0
+  --
+  --       ".icon" $ do
+  --         padding    =: 0
+  --         fontSize   =: fontSizeOf #base
+  --         marginLeft =: marginOf #item
+  --         lineHeight =: menuItemOffset
+  --         background =: none !important
+  --         iconStyle
 
 
 
@@ -124,9 +128,23 @@ root = do
 --   freeCons 1
 
 
+thunkMapRef :: MVar ThunkMap
+thunkMapRef = unsafePerformIO (newMVar mempty)
+{-# NOINLINE thunkMapRef #-}
+
+foo :: Int -> ()
+foo i = unsafePerformIO
+      $ modifyMVar_ thunkMapRef (return . (at i .~ Just i))
+{-# NOINLINE foo #-}
+
+
 main :: IO ()
 main = do
+  print $ foo <$> [0..10]
+  print =<< readMVar thunkMapRef
+
   -- M2.test
   -- pprint style
-  r <- joinStyleT root
+  r <- flip evalStateT (mempty :: ThunkMap) $ joinStyleT root
+  pprint r
   putStrLn $ convert $ render @Pretty @Less $ toList r
