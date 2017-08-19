@@ -18,49 +18,52 @@ import           Data.Map (Map)
 import Control.Concurrent.MVar
 import System.IO.Unsafe
 
-data Font = Font { _size :: Val }
-makeLenses ''Font
+import qualified Data.IntMap.Strict as IntMap
+import           Data.IntMap.Strict (IntMap)
 
-instance Mempty    Font where mempty  = Font (12 px)
-instance Semigroup Font where (<>)    = undefined -- FIXME
-instance P.Monoid  Font where mempty  = mempty
-                              mappend = (<>)
-
-fontMap :: Map Text Font
-fontMap = fromList
-  [ (#base    , Font (12px))
-  , (#section , Font (36px))
-  ]
-
-fontOf :: Text -> Font
-fontOf t = fontMap ^. ix t
-
-fontSizeOf :: Text -> Val
-fontSizeOf t = fontOf t ^. size
-
-marginMap :: Map Text Number
-marginMap = fromList
-  [ (#base  , base)
-  , (#panel , base * 2)
-  , (#item  , base)
-  ]
-  where base = 20px
-
-radiusMap :: Map Text Number
-radiusMap = fromList
-  [ (#button , 8px)
-  ]
-
-marginOf :: Convertible Number t => Text -> t
-marginOf t = convert $ marginMap ^. ix t
-
-radiusOf :: Convertible Number t => Text -> t
-radiusOf t = convert $ radiusMap ^. ix t
-
-uiSize = 14px
-
-
-iconOffset = 0.4
+-- data Font = Font { _size :: Val }
+-- makeLenses ''Font
+--
+-- instance Mempty    Font where mempty  = Font (12 px)
+-- instance Semigroup Font where (<>)    = undefined -- FIXME
+-- instance P.Monoid  Font where mempty  = mempty
+--                               mappend = (<>)
+--
+-- fontMap :: Map Text Font
+-- fontMap = fromList
+--   [ (#base    , Font (12px))
+--   , (#section , Font (36px))
+--   ]
+--
+-- fontOf :: Text -> Font
+-- fontOf t = fontMap ^. ix t
+--
+-- fontSizeOf :: Text -> Val
+-- fontSizeOf t = fontOf t ^. size
+--
+-- marginMap :: Map Text Number
+-- marginMap = fromList
+--   [ (#base  , base)
+--   , (#panel , base * 2)
+--   , (#item  , base)
+--   ]
+--   where base = 20px
+--
+-- radiusMap :: Map Text Number
+-- radiusMap = fromList
+--   [ (#button , 8px)
+--   ]
+--
+-- marginOf :: Convertible Number t => Text -> t
+-- marginOf t = convert $ marginMap ^. ix t
+--
+-- radiusOf :: Convertible Number t => Text -> t
+-- radiusOf t = convert $ radiusMap ^. ix t
+--
+-- uiSize = 14px
+--
+--
+-- iconOffset = 0.4
 
 -- iconStyle       :: Monad m => StyleT m ()
 -- scaledIconStyle :: Monad m => Val -> StyleT m ()
@@ -80,11 +83,12 @@ iconOffset = 0.4
 -- setColor = do
 
 
-menuItemOffset = marginOf #item * 2 + (fontSizeOf #base)
+-- menuItemOffset = marginOf #item * 2 + (fontSizeOf #base)
 
-root :: Monad m => StyleT m ()
+root :: PrimMonadIO m => StyleT m ()
 root = do
-  position =: 2
+  position <-: 2 + 3
+  -- position =: 2
   -- ".settings-view" $ do
   --
   --   ------------------
@@ -128,23 +132,18 @@ root = do
 --   freeCons 1
 
 
-thunkMapRef :: MVar ThunkMap
-thunkMapRef = unsafePerformIO (newMVar mempty)
-{-# NOINLINE thunkMapRef #-}
 
-foo :: Int -> ()
-foo i = unsafePerformIO
-      $ modifyMVar_ thunkMapRef (return . (at i .~ Just i))
-{-# NOINLINE foo #-}
 
+-- modifyMVar :: MVar a -> (a -> IO (a, b)) -> IO b
 
 main :: IO ()
 main = do
-  print $ foo <$> [0..10]
-  print =<< readMVar thunkMapRef
+  -- print $ foo <$> [0..10]
 
   -- M2.test
   -- pprint style
-  r <- flip evalStateT (mempty :: ThunkMap) $ joinStyleT root
+  r <- flip evalStateT (0 :: Int) $ joinStyleT root
+  -- print =<< readMVar thunkMapRef
+
   pprint r
   putStrLn $ convert $ render @Pretty @Less $ toList r

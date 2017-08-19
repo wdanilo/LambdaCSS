@@ -191,7 +191,7 @@ data Expr
   | ExprThunk Thunk
 
 newtype Thunk = Thunk Int deriving (Num, Show)
-type ThunkMap = IntMap Int
+type ThunkMap = IntMap Thunk
 
 (!) :: Val -> ValFlag -> Val
 (!) v f = v & valFlags %~ Set.insert f
@@ -283,9 +283,9 @@ instance RealFrac2 Val where
   round2 = app1 "round"
 
 
-----------------------
--- === ThunkMap === --
-----------------------
+  ----------------------
+  -- === Renderer === --
+  ----------------------
 
 
 
@@ -300,6 +300,9 @@ type MonadStyle = MonadFreeList Decl
 
 type    Style      = StyleT Identity
 newtype StyleT m a = StyleT (FreeListT Decl m a) deriving (Functor, Applicative, Monad, MonadFree (ListCons (Decl)), MonadTrans)
+newtype ValueT m a = ValueT (IdentityT m a)      deriving (Functor, Applicative, Monad, MonadTrans)
+
+type StyleValueT m = ValueT (StyleT m)
 
 data Decl = DefDecl     Def
           | SectionDecl Section
@@ -319,6 +322,8 @@ data Section = Section
 
 -- === Utils === --
 
+runValueT :: ValueT m a -> m a
+runValueT = runIdentityT . unwrap
 
 embedDecl :: Monad m => StyleT m Decl -> StyleT m ()
 embedDecl d = d >>= liftToFreeList
@@ -332,8 +337,8 @@ joinStyleT = fmap wrap . joinFreeListT . unwrap
 
 
 
-class                         (Monad m)                       => AutoAssignment t   m where assignM :: t -> m Val -> m ()
-instance {-# OVERLAPPABLE #-} (Monad m, MonadStyle m, t~Text) => AutoAssignment t   m where assignM t v = liftToFreeList =<< DefDecl . Def t <$> v
+class                         (Monad m)                       => AutoAssignment t   m where assignM :: t -> ValueT m Val -> m ()
+instance {-# OVERLAPPABLE #-} (Monad m, MonadStyle m, t~Text) => AutoAssignment t   m where assignM t v = liftToFreeList =<< runValueT (DefDecl . Def t <$> v)
 instance {-# INCOHERENT #-}   (AutoAssignment t m)            => AutoAssignment [t] m where assignM t v = sequence_ $ (flip assignM v) <$> t
 
 assign :: AutoAssignment t m => t -> Val -> m ()
@@ -341,8 +346,8 @@ assign t v = assignM t (pure v)
 
 infixl 0  =:
 infixl 0 <-:
-(=:)  :: AutoAssignment t m => t ->   Val -> m ()
-(<-:) :: AutoAssignment t m => t -> m Val -> m ()
+(=:)  :: AutoAssignment t m => t ->               Val -> m ()
+(<-:) :: AutoAssignment t m => t -> ValueT m Val -> m ()
 (=:)  = assign
 (<-:) = assignM
 
@@ -352,7 +357,6 @@ infixl 0 <-:
 
 instance IsString Selector where
   fromString = SimpleSelector . fromString
-
 
 instance {-# OVERLAPPABLE #-} (s ~ StyleT (StyleT m) (), a ~ (), Monad m) => IsString (s -> StyleT m a) where
   fromString sel sect = embedSectionDecl (Section (fromString sel) <$> joinStyleT sect)
@@ -371,7 +375,22 @@ instance PrimMonad m => PrimMonad (StyleT m) where
   type PrimState (StyleT m) = PrimState m
   primitive = lift . primitive ; {-# INLINE primitive #-}
 
+instance PrimMonad m => PrimMonad (ValueT m) where
+  type PrimState (ValueT m) = PrimState m
+  primitive = lift . primitive ; {-# INLINE primitive #-}
+
 makeLenses ''Section
+makeLenses ''ValueT
+
+
+instance PrimMonadIO m => Num (StyleValueT m Val) where
+  fromInteger i = fromInteger i <$ print "CREATING Integer"
+  (+)         l r = (+) <$> l <*> r
+  -- (-)         = app2 "-"
+  -- (*)         = app2 "*"
+  -- abs         = app1 "abs"
+  -- signum      = app1 "signum"
+
 
 
 ----------------------
