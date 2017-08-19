@@ -5,7 +5,7 @@
 module Main where
 
 import qualified Prelude as P
-import Prologue hiding ((>), none, (%=))
+import Prologue hiding (none, (%=), assign)
 import Control.Monad.Free
 -- import qualified Main2 as M2
 
@@ -56,18 +56,19 @@ radiusOf t = convert $ radiusMap ^. ix t
 
 uiSize = 14px
 
-iconStyle       :: Style
-scaledIconStyle :: Val -> Style
 
 iconOffset = 0.4
+
+iconStyle       :: Monad m => StyleT m ()
+scaledIconStyle :: Monad m => Val -> StyleT m ()
 iconStyle = scaledIconStyle 1.5
 scaledIconStyle scale = do
   let fss = round2 (fontSizeOf #base * scale)
   "&::before" $ do
-    -- [ fontSize,
-    --   width,
-    --   height,
-    --   lineHeight] %= fss
+    [ fontSize,
+      width,
+      height,
+      lineHeight] =: fss
     top           =: 0
     marginLeft    =: round2 (fss * iconOffset)
     verticalAlign =: middle
@@ -78,7 +79,7 @@ scaledIconStyle scale = do
 
 menuItemOffset = marginOf #item * 2 + (fontSizeOf #base)
 
-root :: Style
+root :: StyleT IO ()
 root = do
   ".settings-view" $ do
 
@@ -87,25 +88,25 @@ root = do
     ------------------
 
     ".config-menu" $ do
-      position   =: relative
-      -- marginLeft =: marginOf #panel
-      -- minWidth   =: uiSize * 14 -- FIXME
-      -- maxWidth   =: uiSize * 20 -- FIXME
-      -- background =: none
-      -- border     =: 0
-      -- padding    =: 0
-      --
-      -- ".nav" > li $ do
-      --   borderRadius =: 0
-      --   border       =: 0
-      --
-      --   ".icon" $ do
-      --     padding    =: 0
-      --     fontSize   =: fontSizeOf #base
-      --     marginLeft =: marginOf #item
-      --     lineHeight =: menuItemOffset
-      --     background =: none !important
-      --     -- iconStyle
+      position =: relative
+      marginLeft =: marginOf #panel
+      minWidth   =: uiSize * 14 -- FIXME
+      maxWidth   =: uiSize * 20 -- FIXME
+      background =: none
+      border     =: 0
+      padding    =: 0
+
+      ".nav > li" $ do
+        borderRadius =: 0
+        border       =: 0
+
+        ".icon" $ do
+          padding    =: 0
+          fontSize   =: fontSizeOf #base
+          marginLeft =: marginOf #item
+          lineHeight =: menuItemOffset
+          background =: none !important
+          iconStyle
 
 
 
@@ -127,4 +128,5 @@ main :: IO ()
 main = do
   -- M2.test
   -- pprint style
-  putStrLn $ convert $ render @Pretty @Less $ toList root
+  r <- joinStyleT root
+  putStrLn $ convert $ render @Pretty @Less $ toList r

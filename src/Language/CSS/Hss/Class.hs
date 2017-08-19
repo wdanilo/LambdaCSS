@@ -6,7 +6,7 @@
 module Language.CSS.Hss.Class where
 
 import qualified Prelude as P
-import Prologue hiding ((>))
+import Prologue hiding (assign)
 -- import Control.Monad.Free
 
 import           Data.Map.Strict    (Map)
@@ -24,15 +24,6 @@ import Control.Monad.Trans.Free hiding (wrap)
 instance (PrimMonad m, Functor a) => PrimMonad (FreeT a m) where
   type PrimState (FreeT a m) = PrimState m
   primitive = lift . primitive ; {-# INLINE primitive #-}
-
-
-
-class IsSubSelector a b where
-  infixr 4 >
-  (>) :: a -> a -> b
-
-instance {-# OVERLAPPABLE #-} Ord a => IsSubSelector a Bool where
-  (>) = (P.>)
 
 
 
@@ -272,6 +263,8 @@ instance Show Def where
 instance IsString Val where
   fromString = txt . fromString
 
+instance Convertible Text Val where convert = txt
+
 instance Num Val where
   fromInteger = number . fromInteger
   (+)         = app2 "+"
@@ -295,97 +288,84 @@ instance RealFrac2 Val where
 
 -- === Definition === --
 
-type    Style            = StyleT Identity
-type    StyleT       m   = SectionBodyT m ()
-type    SectionBody      = SectionBodyT Identity
-newtype SectionBodyT m a = SectionBodyT (FreeListT (Decl m) m a) deriving (Functor, Applicative, Monad, MonadFree (ListCons (Decl m)))
+type MonadStyle = MonadFreeList Decl
 
-data Decl m = DefDecl     Def
-          | SectionDecl (Section m)
+type    Style      = StyleT Identity
+newtype StyleT m a = StyleT (FreeListT Decl m a) deriving (Functor, Applicative, Monad, MonadFree (ListCons (Decl)), MonadTrans)
+
+data Decl = DefDecl     Def
+          | SectionDecl Section
+          deriving (Show)
 
 data Selector
   = SimpleSelector Text
   | SubSelector    Selector Selector
   deriving (Show)
 
-data Section m = Section
+data Section = Section
   { _selector :: Selector
-  , _body     :: SectionBodyT m ()
-  } --deriving (Show)
+  , _body     :: Style ()
+  } deriving (Show)
 
-deriving instance Show (Section m) => Show (Decl m)
-deriving instance Show (SectionBodyT m ()) => Show (Section m)
-
--- Lens.makeWrapped ''SectionBody
 
 
 -- === Utils === --
 
-decl :: Monad m => Decl m -> SectionBodyT m ()
-decl = SectionBodyT . liftToFreeList
 
-sectionDecl :: Monad m => Section m -> SectionBodyT m ()
-sectionDecl = decl . SectionDecl
+embedDecl :: Monad m => StyleT m Decl -> StyleT m ()
+embedDecl d = d >>= liftToFreeList
 
--- joinFreeListT :: Monad m => FreeListT t m a -> m (FreeList t a)
-joinStyleT :: Monad m => StyleT m -> m Style
+embedSectionDecl :: Monad m => StyleT m Section -> StyleT m ()
+embedSectionDecl = embedDecl . fmap SectionDecl
+
+joinStyleT :: Monad m => StyleT m a -> m (Style a)
 joinStyleT = fmap wrap . joinFreeListT . unwrap
 
--- infixl 0 :=
--- pattern (:=) :: Text -> Val -> SectionBody
--- pattern (:=){t, v} = SectionBodyT (FreeListT (FreeT (Identity (Free (ListCons (DefDecl (Def t v)) (FreeT (Identity (Pure ()))))))))
---
--- infixl 0 %=
--- (%=) :: [Text] -> Val -> SectionBody
--- ts %= v = sequence_ $ (:= v) <$> ts
 
-infixl 0 =:
-(=:) :: Monad m => Text -> Val -> SectionBodyT m ()
-t =: v = liftToFreeList $ DefDecl (Def t v)
 
--- liftToFreeList :: MonadFree (ListCons a) m => a -> m ()
--- liftToFreeList a = liftF $ ListCons a ()
 
--- data Foo m a = Foo a (m a)
+class                         (Monad m)                       => AutoAssignment t   m where assignM :: t -> m Val -> m ()
+instance {-# OVERLAPPABLE #-} (Monad m, MonadStyle m, t~Text) => AutoAssignment t   m where assignM t v = liftToFreeList =<< DefDecl . Def t <$> v
+instance {-# INCOHERENT #-}   (AutoAssignment t m)            => AutoAssignment [t] m where assignM t v = sequence_ $ (flip assignM v) <$> t
 
--- pattern HeadC x <- x:xs where
---   HeadC x = [x]
+assign :: AutoAssignment t m => t -> Val -> m ()
+assign t v = assignM t (pure v)
 
--- pattern (:=){t, v} = t : v
--- pattern (:==) :: Monad m => a -> a -> Foo m a
--- pattern t :== v <- Foo t (Identity v) where
---   t :== v = Foo t (Identity v)
+infixl 0  =:
+infixl 0 <-:
+(=:)  :: AutoAssignment t m => t ->   Val -> m ()
+(<-:) :: AutoAssignment t m => t -> m Val -> m ()
+(=:)  = assign
+(<-:) = assignM
 
--- (:==) = const
+
 
 -- === Instances === --
 
 instance IsString Selector where
   fromString = SimpleSelector . fromString
 
-instance (m ~ m', a ~ ()) => IsString (SectionBodyT m a -> Section m') where
-  fromString = Section . fromString
 
--- instance (m ~ m', a ~ a', a ~ (), m ~ Identity) => IsString (SectionBodyT m a -> SectionBodyT m' a') where
---   fromString s = sectionDecl . Section (fromString s)
+instance {-# OVERLAPPABLE #-} (s ~ StyleT (StyleT m) (), a ~ (), Monad m) => IsString (s -> StyleT m a) where
+  fromString sel sect = embedSectionDecl (Section (fromString sel) <$> joinStyleT sect)
 
-instance {-# OVERLAPPABLE #-} (s ~ SectionBodyT m (), a ~ (), Monad m) => IsString (s -> SectionBodyT m a) where fromString s = sectionDecl . Section (fromString s)
+instance Wrapped (StyleT m a) where
+  type Unwrapped (StyleT m a) = FreeListT Decl m a
+  _Wrapped' = iso (\(StyleT a) -> a) StyleT
 
-instance (a ~ Selector)         => IsSubSelector a Selector                        where (>) = SubSelector
-instance (a ~ Selector, m ~ m') => IsSubSelector a (SectionBodyT m () -> Section m')     where (>) = Section .: (>)
-instance (a ~ Selector, m ~ m', t ~ (), Monad m) => IsSubSelector a (SectionBodyT m () -> SectionBodyT m' t) where (>) = (sectionDecl .: Section) .: (>)
+deriving instance Show (Unwrapped (StyleT m a)) => Show (StyleT m a)
 
-instance Wrapped (SectionBodyT m a) where
-  type Unwrapped (SectionBodyT m a) = FreeListT (Decl m) m a
-  _Wrapped' = iso (\(SectionBodyT a) -> a) SectionBodyT
-
-deriving instance Show (Unwrapped (SectionBodyT m a)) => Show (SectionBodyT m a)
-
-type instance Item (SectionBodyT m a) = Decl m
-instance Convertible (SectionBodyT Identity ()) [Decl Identity] where
+type instance Item (StyleT m a) = Decl
+instance Convertible (StyleT Identity ()) [Decl] where
   convert = convert . unwrap
 
+instance PrimMonad m => PrimMonad (StyleT m) where
+  type PrimState (StyleT m) = PrimState m
+  primitive = lift . primitive ; {-# INLINE primitive #-}
+
 makeLenses ''Section
+
+
 ----------------------
 -- === Renderer === --
 ----------------------
@@ -393,7 +373,7 @@ makeLenses ''Section
 -- ==== Definition === --
 
 class Renderer style t where
-  render :: [Decl Identity] -> Text
+  render :: [Decl] -> Text
 
 
 -- === Styles === --

@@ -3,6 +3,10 @@
 
 module Language.CSS.Hss.Properties where
 
+-- import Prologue
+--
+-- default (Text)
+
 alignContent                  = "align-content"
 alignItems                    = "align-items"
 alignSelf                     = "align-self"
