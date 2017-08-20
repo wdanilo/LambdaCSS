@@ -85,9 +85,9 @@ import           Data.IntMap.Strict (IntMap)
 
 -- menuItemOffset = marginOf #item * 2 + (fontSizeOf #base)
 
-root :: MonadThunk m => StyleT m ()
+root :: MonadThunk m => StyleT Thunk m ()
 root = do
-  position =: 2px * 2px + 1
+  position =: 2px * 2 + 1
   -- position =: 2
   -- ".settings-view" $ do
   --
@@ -142,18 +142,21 @@ main = do
 
   -- M2.test
   -- pprint style
-  r <- flip runStateT (mempty :: ThunkMap) $ do
+  fdecls <- flip evalStateT (mempty :: ThunkMap) $ do
     r <- joinStyleT root
     pprint r
+
     print =<< getSortedThunks
     pprint =<< get @ThunkMap
     flip runStateT (Evaluators mempty) $ do
       registerEvaluator funcEvaluator
       evalThunks
     pprint =<< get @ThunkMap
-    return r
+    mapM fixDecl (toList r)
+
+  pprint fdecls
   -- print =<< readMVar thunkMapRef
 
   -- pprint r
   return ()
-  -- putStrLn $ convert $ render @Pretty @Less $ toList r
+  putStrLn $ convert $ render @Pretty @Less fdecls

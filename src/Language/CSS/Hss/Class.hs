@@ -20,7 +20,8 @@ import qualified Control.Lens       as Lens
 import Prelude (round)
 
 import Data.Functor.Foldable
-
+import Data.Bifunctor.TH
+import Text.Show.Deriving
 
 import Control.Monad.Trans.Free hiding (wrap)
 
@@ -41,10 +42,13 @@ type    FreeList      t     = FreeListT t Identity
 newtype FreeListT     t m a = FreeListT (FreeT (ListCons t) m a)
                               deriving (Applicative, Functor, Monad, MonadFreeList t, MonadTrans)
 
-data ListCons a next = ListCons a next
+data ListCons t next = ListCons t next
   deriving (Show, Functor, Foldable, Traversable)
 
-makeLenses ''FreeListT
+makeLenses          ''FreeListT
+deriveBifunctor     ''ListCons
+deriveBifoldable    ''ListCons
+deriveBitraversable ''ListCons
 
 
 -- === Utils === --
@@ -54,6 +58,19 @@ liftToFreeList a = liftF $ ListCons a ()
 
 joinFreeListT :: Monad m => FreeListT t m a -> m (FreeList t a)
 joinFreeListT = fmap wrap . joinFreeT . unwrap
+
+mapFreeListT :: Monad m => (t -> t') -> FreeListT t m a -> FreeListT t' m a
+mapFreeListT f (FreeListT ft) = FreeListT $ go ft where
+  go (FreeT ml) = FreeT $ do
+    ml >>= \case
+      Pure a   -> return $ Pure a
+      Free lst -> return $ Free $ bimap f go lst
+
+foldrFreeList :: forall t t' a. (t -> t' -> t') -> t' -> FreeList t a -> t'
+foldrFreeList f tb lst = foldr f tb (toList lst)
+
+traverseFreeList :: Applicative f => (t -> f t') -> FreeList t () -> f (FreeList t' ()) -- FIXME: current implementation discards the result
+traverseFreeList f lst = fmap fromList . traverse f $ toList lst
 
 
 -- === Instances === --
@@ -69,6 +86,13 @@ instance t~s => Convertible (FreeList t a) [s] where
     toList (FreeT (Identity f)) = case f of
       Free (ListCons t f) -> t : toList f
       Pure _              -> mempty
+
+instance (t~s, Monoid a) => Convertible [s] (FreeList t a) where
+  convert = wrap . fromList where
+    fromList :: [t] -> Free (ListCons t) a
+    fromList = FreeT . Identity . \case
+      []     -> Pure mempty
+      (t:ts) -> Free . ListCons t $ fromList ts
 
 instance Show t => Show (FreeList t a) where show = show . toList
 
@@ -204,6 +228,8 @@ data Val a = Val
   , _rawVal   :: RawVal a
   } deriving (Foldable, Functor, Traversable)
 
+deriveShow1 ''RawVal
+deriveShow1 ''Val
 makeLenses ''Val
 makeLenses ''Thunk
 
@@ -267,7 +293,7 @@ data Def a = Def
 fixDef :: MonadThunk m => Def Thunk -> m (Def (Fix Val))
 fixDef = mapM fixThunk
 
-instance MonadThunk m => Num (Unit -> StyleValueT m Thunk) where
+instance MonadThunk m => Num (Unit -> StyleValueT Thunk m Thunk) where
   fromInteger = number .: fromInteger
 
 instance Num (Unit -> Number) where
@@ -448,27 +474,33 @@ instance Show a => Show (Def a) where
 
 -- === Definition === --
 
-type MonadStyle = MonadFreeList Decl
+type MonadStyle = MonadFreeList (Decl Thunk)
 
-type    Style      = StyleT Identity
-newtype StyleT m a = StyleT (FreeListT Decl m a) deriving (Functor, Applicative, Monad, MonadFree (ListCons (Decl)), MonadTrans)
-newtype ValueT m a = ValueT (IdentityT m a)      deriving (Functor, Applicative, Monad, MonadTrans)
+type    Style  v     = StyleT v Identity
+newtype StyleT v m a = StyleT (FreeListT (Decl v) m a) deriving (Functor, Applicative, Monad, MonadFree (ListCons (Decl v)), MonadTrans)
+newtype ValueT   m a = ValueT (IdentityT m a)          deriving (Functor, Applicative, Monad, MonadTrans)
 
-type StyleValueT m = ValueT (StyleT m)
+type StyleValueT v m = ValueT (StyleT v m)
 
-data Decl = DefDecl     (Def Thunk)
-          | SectionDecl Section
-          deriving (Show)
+type ThunkDecl = Decl Thunk
+type ValueDecl = Decl (Fix Val)
+data Decl v
+  = DefDecl     (Def     v)
+  | SectionDecl (Section v)
+  deriving (Show)
 
 data Selector
   = SimpleSelector Text
   | SubSelector    Selector Selector
   deriving (Show)
 
-data Section = Section
+data Section v = Section
   { _selector :: Selector
-  , _body     :: Style ()
-  } deriving (Show)
+  , _body     :: Style v ()
+  }
+
+deriving instance Show v => Show (Section v)
+
 
 
 
@@ -477,15 +509,17 @@ data Section = Section
 runValueT :: ValueT m a -> m a
 runValueT = runIdentityT . unwrap
 
-embedDecl :: Monad m => StyleT m Decl -> StyleT m ()
+embedDecl :: Monad m => StyleT v m (Decl v) -> StyleT v m ()
 embedDecl d = d >>= liftToFreeList
 
-embedSectionDecl :: Monad m => StyleT m Section -> StyleT m ()
+embedSectionDecl :: Monad m => StyleT v m (Section v) -> StyleT v m ()
 embedSectionDecl = embedDecl . fmap SectionDecl
 
-joinStyleT :: Monad m => StyleT m a -> m (Style a)
+joinStyleT :: Monad m => StyleT v m a -> m (Style v a)
 joinStyleT = fmap wrap . joinFreeListT . unwrap
 
+fixDecl :: MonadThunk m => ThunkDecl -> m ValueDecl
+fixDecl = mapM fixThunk
 
 
 
@@ -507,21 +541,22 @@ infixl 0 =:
 instance IsString Selector where
   fromString = SimpleSelector . fromString
 
-instance {-# OVERLAPPABLE #-} (s ~ StyleT (StyleT m) (), a ~ (), Monad m) => IsString (s -> StyleT m a) where
+instance {-# OVERLAPPABLE #-} (s ~ StyleT v (StyleT v m) (), a ~ (), Monad m) => IsString (s -> StyleT v m a) where
   fromString sel sect = embedSectionDecl (Section (fromString sel) <$> joinStyleT sect)
 
-instance Wrapped (StyleT m a) where
-  type Unwrapped (StyleT m a) = FreeListT Decl m a
+instance Rewrapped (StyleT v m a) (StyleT v' m a)
+instance Wrapped   (StyleT v m a) where
+  type Unwrapped   (StyleT v m a) = FreeListT (Decl v) m a
   _Wrapped' = iso (\(StyleT a) -> a) StyleT
 
-deriving instance Show (Unwrapped (StyleT m a)) => Show (StyleT m a)
+deriving instance Show (Unwrapped (StyleT v m a)) => Show (StyleT v m a)
 
-type instance Item (StyleT m a) = Decl
-instance Convertible (StyleT Identity ()) [Decl] where
+type instance Item (StyleT v m a) = Item (Unwrapped (StyleT v m a))
+instance v~v' => Convertible (StyleT v Identity ()) [Decl v'] where
   convert = convert . unwrap
 
-instance PrimMonad m => PrimMonad (StyleT m) where
-  type PrimState (StyleT m) = PrimState m
+instance PrimMonad m => PrimMonad (StyleT v m) where
+  type PrimState (StyleT v m) = PrimState m
   primitive = lift . primitive ; {-# INLINE primitive #-}
 
 instance PrimMonad m => PrimMonad (ValueT m) where
@@ -531,8 +566,16 @@ instance PrimMonad m => PrimMonad (ValueT m) where
 makeLenses ''Section
 makeLenses ''ValueT
 
+instance Functor     Section where fmap  f = (body . wrapped) %~ mapFreeListT (fmap f)
+instance Foldable    Section -- FIXME TODO where foldr f t = foldrFreeList f t . view (body . wrapped)
+instance Traversable Section where traverse f = (body . wrapped) $ traverseFreeList (traverse f)
 
-instance MonadThunk m => Num (StyleValueT m Thunk) where
+deriving instance Functor Decl
+deriving instance Foldable Decl
+deriving instance Traversable Decl
+
+
+instance MonadThunk m => Num (StyleValueT Thunk m Thunk) where
   fromInteger = number . fromInteger
   (+)         = appM2 "+"
   (-)         = appM2 "-"
@@ -550,7 +593,7 @@ instance MonadThunk m => Num (StyleValueT m Thunk) where
 -- ==== Definition === --
 
 class Renderer style t where
-  render :: [Decl] -> Text
+  render :: [ValueDecl] -> Text
 
 
 -- === Styles === --

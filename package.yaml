@@ -16,6 +16,8 @@ executables:
       - free
       - containers
       - recursion-schemes
+      - bifunctors
+      - deriving-compat
 
 default-extensions:
     - AllowAmbiguousTypes
