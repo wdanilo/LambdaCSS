@@ -128,8 +128,8 @@ instance Show Number where
 instance Num Number where
   fromInteger               = Number mempty . fromInteger
   Number u a * Number u' a' = Number (Map.unionWith (+) u u') (a * a')
-  Number u a + Number u' a' = if u == u then Number u (a + a') else error $ "Cannot add numbers with different units " <> show u <> " and " <> show u'
-  Number u a - Number u' a' = if u == u then Number u (a + a') else error $ "Cannot subtract numbers with different units " <> show u <> " and " <> show u'
+  Number u a + Number u' a' = if u == u' then Number u (a + a') else error $ "Cannot add numbers with different units " <> show u <> " and " <> show u'
+  Number u a - Number u' a' = if u == u' then Number u (a + a') else error $ "Cannot subtract numbers with different units " <> show u <> " and " <> show u'
   abs    (Number u a)       = Number u (abs a)
   signum (Number _ a)       = Number mempty (signum a)
 
@@ -183,14 +183,11 @@ important = FlagImportant
 newtype Thunk = Thunk Int deriving (Num, Show)
 type ThunkMap = IntMap Val
 
+instance Convertible Int Thunk where convert = coerce
+instance Convertible Thunk Int where convert = coerce
+
 
 type MonadThunk a = MonadState ThunkMap a
-
-
-newThunk :: MonadThunk m => Val -> m Thunk
-newThunk v = modify @ThunkMap go where
-  go m = (wrap idx, IntMap.insert idx v m) where
-    idx = IntMap.size m
 
 
 data RawVal
@@ -207,6 +204,30 @@ data Val = Val
 
 makeLenses ''Val
 makeLenses ''Thunk
+
+instance Convertible Number RawVal where convert = Num
+
+instance {-# OVERLAPPABLE #-} Convertible a RawVal
+      => Convertible a      Val where convert = convertVia @RawVal
+instance Convertible RawVal Val where convert = Val mempty
+
+
+newThunk :: MonadThunk m => Val -> m Thunk
+newThunk v = modify @ThunkMap go where
+  go m = (wrap idx, IntMap.insert idx v m) where
+    idx = IntMap.size m
+
+readThunk    :: MonadThunk m => Thunk -> m Val
+readThunkRaw :: MonadThunk m => Thunk -> m RawVal
+readThunk    t = (^?! ix (unwrap t)) <$> get @ThunkMap
+readThunkRaw t = view rawVal <$> readThunk t
+
+writeThunk :: MonadThunk m => Thunk -> Val -> m ()
+writeThunk t = modifyThunk t . const
+
+modifyThunk :: MonadThunk m => Thunk -> (Val -> Val) -> m ()
+modifyThunk t f = modify_ @ThunkMap $ ix (unwrap t) %~ f
+
 
 instance Show Val where
   showsPrec d (Val f r) = showParen' d
@@ -230,11 +251,11 @@ data Def = Def
   }
 
 
--- instance Num (Unit -> Val) where
---   fromInteger = number .: fromInteger
---
--- instance Num (Unit -> Number) where
---   fromInteger i = flip Number (fromInteger i) . flip Map.singleton 1
+instance MonadThunk m => Num (Unit -> StyleValueT m Thunk) where
+  fromInteger = number .: fromInteger
+
+instance Num (Unit -> Number) where
+  fromInteger i = flip Number (fromInteger i) . flip Map.singleton 1
 
 -- === Utils === --
 
@@ -243,6 +264,60 @@ data Def = Def
 --   ValNum a -> Just a
 --   _        -> Nothing
 
+data Evaluator = Evaluator { _computedThunks :: Set Thunk } deriving (Show)
+
+-- computeThunks :: (MonadState Evaluator m, MonadThunk m) => m ()
+-- computeThunks = do
+--   tm <- get @ThunkMap
+--   IntMap.keys
+--
+--
+-- while there are unmarked nodes do
+--     select an unmarked node n
+--     visit(n)
+
+getSortedThunks :: MonadThunk m => m [Thunk]
+getSortedThunks = do
+  thunks <- fmap convert . IntMap.keys <$> get @ThunkMap
+  reverse . fst <$> foldM (uncurry visit) (mempty, mempty) thunks
+  where
+    visit :: MonadThunk m => [Thunk] -> Set Int -> Thunk -> m ([Thunk], Set Int)
+    visit sorted visited t = if visited ^. contains (unwrap t) then return (sorted, visited) else do
+      let visitedMe = visited & contains (unwrap t) .~ True
+      (sorted', visited') <- readThunkRaw t >>= \case
+        App n ts -> foldM (uncurry visit) (sorted, visitedMe) ts
+        _        -> return (sorted, visitedMe)
+      return (t : sorted', visited')
+
+evalThunks :: MonadThunk m => m ()
+evalThunks = do
+  thunks <- getSortedThunks
+  mapM_ evalThunk thunks
+
+evalThunk :: MonadThunk m => Thunk -> m ()
+evalThunk t = do
+  val <- readThunk t
+  case val ^. rawVal of
+    App n ts -> do
+      vals <- mapM readThunk ts
+      evalApp n vals >>= \case
+        Just val' -> writeThunk t (val' & valFlags .~ (val ^. valFlags))
+        Nothing   -> return ()
+    _ -> return ()
+
+evalApp :: Monad m => Text -> [Val] -> m (Maybe Val)
+evalApp n vs = return $ case (n, view rawVal <$> vs) of
+  ("*", [Num (Number u a), Num (Number u' a')]) -> Just $ convert $ Number (Map.unionWith (+) u u') (a * a')
+  ("+", [Num (Number u a), Num (Number u' a')]) -> justIf (u == u') $ convert $ Number u $ a + a'
+  _ -> Nothing
+
+
+
+-- Monad m => (a -> b -> m a) -> a -> [b] -> m a
+--                                    [Thunk]
+
+simpleVal :: RawVal -> Val
+simpleVal = Val mempty
 
 val :: MonadThunk m => RawVal -> m Thunk
 val = newThunk . Val mempty

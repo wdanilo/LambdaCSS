@@ -87,7 +87,7 @@ import           Data.IntMap.Strict (IntMap)
 
 root :: MonadThunk m => StyleT m ()
 root = do
-  position =: 2 + 2 * 2
+  position =: 2px * 2px + 1
   -- position =: 2
   -- ".settings-view" $ do
   --
@@ -142,8 +142,16 @@ main = do
 
   -- M2.test
   -- pprint style
-  r <- flip runStateT (mempty :: ThunkMap) $ joinStyleT root
+  r <- flip runStateT (mempty :: ThunkMap) $ do
+    r <- joinStyleT root
+    pprint r
+    print =<< getSortedThunks
+    pprint =<< get @ThunkMap
+    evalThunks
+    pprint =<< get @ThunkMap
+    return r
   -- print =<< readMVar thunkMapRef
 
-  pprint r
+  -- pprint r
+  return ()
   -- putStrLn $ convert $ render @Pretty @Less $ toList r
