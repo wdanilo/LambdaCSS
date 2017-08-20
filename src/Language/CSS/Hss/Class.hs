@@ -311,10 +311,6 @@ fixDef = mapM fixThunk
 
 -- === Instances === --
 
-
-
--- === Instances === --
-
 instance Show a => Show (Def a) where
   showsPrec d (Def n v) = showParen (d > up_prec)
     $ showsPrec (up_prec + 1) n
@@ -322,147 +318,129 @@ instance Show a => Show (Def a) where
     . showsPrec (up_prec + 1) v
     where up_prec = 5
 
--- instance IsString Val where
---   fromString = txt . fromString
-
--- instance Convertible Text Val where convert = txt
-
--- instance Num Val where
---   fromInteger = number . fromInteger
---   (+)         = app2 "+"
---   (-)         = app2 "-"
---   (*)         = app2 "*"
---   abs         = app1 "abs"
---   signum      = app1 "signum"
-
--- instance Convertible Number Val where convert = number
-
--- instance Fractional Val where
---   fromRational = number . fromRational
---   (/)          = app2 "/"
---
--- instance RealFrac2 Val where
---   round2 = app1 "round"
 
 
-  ----------------------
-  -- === Renderer === --
-  ----------------------
-
-
-
-
-----------------------------
--- === CSS structures === --
-----------------------------
+-------------------
+-- === Style === --
+-------------------
 
 -- === Definition === --
 
 type MonadStyle = MonadFreeList (Decl Thunk)
 
-type    Style  v     = StyleT v Identity
-newtype StyleT v m a = StyleT (FreeListT (Decl v) m a) deriving (Functor, Applicative, Monad, MonadFree (ListCons (Decl v)), MonadTrans)
-newtype ValueT   m a = ValueT (IdentityT m a)          deriving (Functor, Applicative, Monad, MonadTrans)
+type    Style              = StyleT Identity
+type    StyleT             = StyleSchemeT Thunk
+type    StyleScheme  v     = StyleSchemeT v Identity
+newtype StyleSchemeT v m a = StyleSchemeT (FreeListT (Decl v) m a) deriving (Functor, Applicative, Monad, MonadFree (ListCons (Decl v)), MonadTrans)
 
-type StyleValueT v m = ValueT (StyleT v m)
+data Section v = Section
+  { _selector :: Selector
+  , _body     :: StyleScheme v ()
+  }
+deriving instance Show v => Show (Section v)
 
-type ThunkDecl = Decl Thunk
-type ValueDecl = Decl (Fix Val)
 data Decl v
   = DefDecl     (Def     v)
   | SectionDecl (Section v)
-  deriving (Show)
+deriving instance Show v => Show (Decl v)
 
 data Selector
   = SimpleSelector Text
   | SubSelector    Selector Selector
   deriving (Show)
 
-data Section v = Section
-  { _selector :: Selector
-  , _body     :: Style v ()
-  }
+type ThunkDecl = Decl Thunk
+type ValueDecl = Decl (Fix Val)
 
-deriving instance Show v => Show (Section v)
-
-
-instance MonadThunk m => Num (Unit -> StyleValueT Thunk m Thunk) where
-  fromInteger = number .: fromInteger
-
+makeLenses ''StyleSchemeT
+makeLenses ''Section
 
 
 -- === Utils === --
 
-runValueT :: ValueT m a -> m a
-runValueT = runIdentityT . unwrap
-
-embedDecl :: Monad m => StyleT v m (Decl v) -> StyleT v m ()
-embedDecl d = d >>= liftToFreeList
-
-embedSectionDecl :: Monad m => StyleT v m (Section v) -> StyleT v m ()
+embedDecl        :: Monad m => StyleSchemeT v m (Decl    v) -> StyleSchemeT v m ()
+embedSectionDecl :: Monad m => StyleSchemeT v m (Section v) -> StyleSchemeT v m ()
+embedDecl d      = d >>= liftToFreeList
 embedSectionDecl = embedDecl . fmap SectionDecl
 
-joinStyleT :: Monad m => StyleT v m a -> m (Style v a)
+joinStyleT :: Monad m => StyleSchemeT v m a -> m (StyleScheme v a)
 joinStyleT = fmap wrap . joinFreeListT . unwrap
 
 fixDecl :: MonadThunk m => ThunkDecl -> m ValueDecl
 fixDecl = mapM fixThunk
 
 
+-- === Instances === --
 
-class                         (Monad m)                       => AutoAssignment t   m where assignM :: t -> ValueT m Thunk -> m ()
-instance {-# OVERLAPPABLE #-} (Monad m, MonadStyle m, t~Text) => AutoAssignment t   m where assignM t v = liftToFreeList =<< runValueT (DefDecl . Def t <$> v)
+-- Selectors
+instance IsString Selector where
+  fromString = SimpleSelector . fromString
+instance {-# OVERLAPPABLE #-} (s ~ StyleSchemeT v (StyleSchemeT v m) (), a ~ (), Monad m) => IsString (s -> StyleSchemeT v m a) where
+  fromString sel sect = embedSectionDecl (Section (fromString sel) <$> joinStyleT sect)
+
+-- List converions
+type instance Item (StyleSchemeT v m a) = Item (Unwrapped (StyleSchemeT v m a))
+instance v~v' => Convertible (StyleSchemeT v Identity ()) [Decl v'] where
+  convert = convert . unwrap
+
+-- Prim
+instance PrimMonad m => PrimMonad (StyleSchemeT v m) where
+  type PrimState (StyleSchemeT v m) = PrimState m
+  primitive = lift . primitive ; {-# INLINE primitive #-}
+
+-- Pretty
+deriving instance Show (Unwrapped (StyleSchemeT v m a)) => Show (StyleSchemeT v m a)
+
+-- Functors
+instance Functor     Section where fmap  f = (body . wrapped) %~ mapFreeListT (fmap f)
+instance Foldable    Section -- FIXME TODO where foldr f t = foldrFreeList f t . view (body . wrapped)
+instance Traversable Section where traverse f = (body . wrapped) $ traverseFreeList (traverse f)
+
+deriving instance Functor     Decl
+deriving instance Foldable    Decl
+deriving instance Traversable Decl
+
+
+
+--------------------------
+-- === Expressions === --
+--------------------------
+
+-- === Definition === --
+-- | The `ExprT` type is defined only to make automatic lifting of literals more type-precise
+--   and to awoid obscure inferencer messages.
+
+newtype ExprT      m a = ExprT (IdentityT    m a) deriving (Functor, Applicative, Monad, MonadTrans)
+type    StyleExprT v m = ExprT (StyleSchemeT v m)
+makeLenses ''ExprT
+
+
+-- === Running === --
+
+runExprT :: ExprT m a -> m a
+runExprT = runIdentityT . unwrap
+
+
+-- === Assignments === --
+
+class                         (Monad m)                       => AutoAssignment t   m where assignM :: t -> ExprT m Thunk -> m ()
+instance {-# OVERLAPPABLE #-} (Monad m, MonadStyle m, t~Text) => AutoAssignment t   m where assignM t v = liftToFreeList =<< runExprT (DefDecl . Def t <$> v)
 instance {-# INCOHERENT #-}   (AutoAssignment t m)            => AutoAssignment [t] m where assignM t v = sequence_ $ (flip assignM v) <$> t
 
 assign :: AutoAssignment t m => t -> Thunk -> m ()
 assign t v = assignM t (pure v)
 
 infixl 0 =:
-(=:) :: AutoAssignment t m => t -> ValueT m Thunk -> m ()
+(=:) :: AutoAssignment t m => t -> ExprT m Thunk -> m ()
 (=:) = assignM
 
 
+-- === Literals lifting === --
 
--- === Instances === --
+instance MonadThunk m => Num (Unit -> StyleExprT Thunk m Thunk) where
+  fromInteger = number .: fromInteger
 
-instance IsString Selector where
-  fromString = SimpleSelector . fromString
-
-instance {-# OVERLAPPABLE #-} (s ~ StyleT v (StyleT v m) (), a ~ (), Monad m) => IsString (s -> StyleT v m a) where
-  fromString sel sect = embedSectionDecl (Section (fromString sel) <$> joinStyleT sect)
-
-instance Rewrapped (StyleT v m a) (StyleT v' m a)
-instance Wrapped   (StyleT v m a) where
-  type Unwrapped   (StyleT v m a) = FreeListT (Decl v) m a
-  _Wrapped' = iso (\(StyleT a) -> a) StyleT
-
-deriving instance Show (Unwrapped (StyleT v m a)) => Show (StyleT v m a)
-
-type instance Item (StyleT v m a) = Item (Unwrapped (StyleT v m a))
-instance v~v' => Convertible (StyleT v Identity ()) [Decl v'] where
-  convert = convert . unwrap
-
-instance PrimMonad m => PrimMonad (StyleT v m) where
-  type PrimState (StyleT v m) = PrimState m
-  primitive = lift . primitive ; {-# INLINE primitive #-}
-
-instance PrimMonad m => PrimMonad (ValueT m) where
-  type PrimState (ValueT m) = PrimState m
-  primitive = lift . primitive ; {-# INLINE primitive #-}
-
-makeLenses ''Section
-makeLenses ''ValueT
-
-instance Functor     Section where fmap  f = (body . wrapped) %~ mapFreeListT (fmap f)
-instance Foldable    Section -- FIXME TODO where foldr f t = foldrFreeList f t . view (body . wrapped)
-instance Traversable Section where traverse f = (body . wrapped) $ traverseFreeList (traverse f)
-
-deriving instance Functor Decl
-deriving instance Foldable Decl
-deriving instance Traversable Decl
-
-
-instance MonadThunk m => Num (StyleValueT Thunk m Thunk) where
+instance MonadThunk m => Num (StyleExprT Thunk m Thunk) where
   fromInteger = number . Number mempty . fromInteger
   (+)         = appM2 "+"
   (-)         = appM2 "-"
@@ -470,11 +448,18 @@ instance MonadThunk m => Num (StyleValueT Thunk m Thunk) where
   abs         = appM1 "abs"
   signum      = appM1 "signum"
 
-instance MonadThunk m => Fractional (StyleValueT Thunk m Thunk) where
+instance MonadThunk m => Fractional (StyleExprT Thunk m Thunk) where
   fromRational = number . Number mempty
   (/)          = appM2 "/"
 
-  -- number :: MonadThunk m => Number -> m Thunk
+
+-- === Instances === --
+
+instance PrimMonad m => PrimMonad (ExprT m) where
+  type PrimState (ExprT m) = PrimState m
+  primitive = lift . primitive ; {-# INLINE primitive #-}
+
+
 
 ----------------------
 -- === Renderer === --

@@ -85,7 +85,7 @@ import           Data.IntMap.Strict (IntMap)
 
 -- menuItemOffset = marginOf #item * 2 + (fontSizeOf #base)
 
-root :: MonadThunk m => StyleT Thunk m ()
+root :: MonadThunk m => StyleT m ()
 root = do
   position =: 200px / 2px + 1px
   -- position =: 2
