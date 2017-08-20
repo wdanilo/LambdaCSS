@@ -148,8 +148,8 @@ main = do
 
     print =<< getSortedThunks
     pprint =<< get @ThunkMap
-    flip evalStateT (ThunkEvaluator mempty) $ do
-      registerEvaluator funcEvaluator
+    evalThunkPassManager $ do
+      registerThunkPass funcEvaluator
       evalThunks
     pprint =<< get @ThunkMap
     mapM fixDecl (toList r)

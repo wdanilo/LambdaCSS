@@ -50,21 +50,21 @@ data Tone
 
 -- === Definition === --
 
-data Val a = Val
+type Value         = ValueScheme Thunk
+type FixedValue    = ValueScheme (Fix ValueScheme)
+data ValueScheme a = ValueScheme
   { _valFlags :: Set Text
-  , _rawVal   :: RawVal a
+  , _rawVal   :: RawValueScheme a
   } deriving (Foldable, Functor, Traversable)
 
-data RawVal a
+type RawValue      = RawValueScheme Thunk
+type FixedRawValue = RawValueScheme (Fix ValueScheme)
+data RawValueScheme a
   = Var Text
   | Num Number
   | Txt Text
   | App Text [a]
   deriving (Foldable, Functor, Show, Traversable)
-
-makeLenses  ''Val
-deriveShow1 ''Val
-deriveShow1 ''RawVal
 
 
 -- === Standard flag definitions === --
@@ -76,15 +76,15 @@ important = "important"
 -- === Instances === --
 
 -- Conversions
-instance Convertible Number (RawVal a) where convert = Num
-instance {-# OVERLAPPABLE #-} Convertible t (RawVal a)
-             => Convertible t          (Val a) where convert = convertVia @(RawVal a)
-instance t~a => Convertible (RawVal t) (Val a) where convert = Val mempty
+instance Convertible Number (RawValueScheme a) where convert = Num
+instance {-# OVERLAPPABLE #-} Convertible t (RawValueScheme a)
+             => Convertible t                  (ValueScheme a) where convert = convertVia @(RawValueScheme a)
+instance t~a => Convertible (RawValueScheme t) (ValueScheme a) where convert = ValueScheme mempty
 
 -- Pretty
-instance Show a => Show (Val a) where
-  showsPrec d (Val f r) = showParen' d
-    $ showString "Val "
+instance Show a => Show (ValueScheme a) where
+  showsPrec d (ValueScheme f r) = showParen' d
+    $ showString "ValueScheme "
     . showsPrec' (toList f)
     . showString " "
     . showsPrec' r
@@ -96,33 +96,33 @@ instance Show a => Show (Val a) where
 -------------------
 
 newtype Thunk        = Thunk Int deriving (Num, Show)
-type    ThunkMap     = IntMap (Val Thunk)
+type    ThunkMap     = IntMap Value
 type    MonadThunk a = MonadState ThunkMap a
 makeLenses ''Thunk
 
 
 -- === Construction === --
 
-newThunk :: MonadThunk m => Val Thunk -> m Thunk
+newThunk :: MonadThunk m => Value -> m Thunk
 newThunk v = modify @ThunkMap go where
   go m = (wrap idx, IntMap.insert idx v m) where
     idx = IntMap.size m
 
-readThunk    :: MonadThunk m => Thunk -> m (Val Thunk)
-readThunkRaw :: MonadThunk m => Thunk -> m (RawVal Thunk)
+readThunk    :: MonadThunk m => Thunk -> m Value
+readThunkRaw :: MonadThunk m => Thunk -> m RawValue
 readThunk    t = (^?! ix (unwrap t)) <$> get @ThunkMap
-readThunkRaw t = view rawVal <$> readThunk t
+readThunkRaw t = (\(ValueScheme _ r) -> r) <$> readThunk t
 
-writeThunk :: MonadThunk m => Thunk -> Val Thunk -> m ()
+writeThunk :: MonadThunk m => Thunk -> Value -> m ()
 writeThunk t = modifyThunk t . const
 
-modifyThunk :: MonadThunk m => Thunk -> (Val Thunk -> Val Thunk) -> m ()
+modifyThunk :: MonadThunk m => Thunk -> (Value -> Value) -> m ()
 modifyThunk t f = modify_ @ThunkMap $ ix (unwrap t) %~ f
 
 
 -- === Catamorphisms === --
 
-fixThunk :: MonadThunk m => Thunk -> m (Fix Val)
+fixThunk :: MonadThunk m => Thunk -> m (Fix ValueScheme)
 fixThunk t = do
   val <- readThunk t
   Fix <$> mapM fixThunk val
@@ -133,6 +133,9 @@ fixThunk t = do
 instance Convertible Int Thunk where convert = coerce
 instance Convertible Thunk Int where convert = coerce
 
+makeLenses  ''ValueScheme
+deriveShow1 ''ValueScheme
+deriveShow1 ''RawValueScheme
 
 
 ------------------------------
@@ -141,14 +144,14 @@ instance Convertible Thunk Int where convert = coerce
 
 -- === Definition === --
 
-newtype ThunkEvaluator m = ThunkEvaluator [Val Thunk -> m (Val Thunk)]
-makeLenses ''ThunkEvaluator
+newtype ThunkPassManager m = ThunkPassManager [Value -> m Value]
+makeLenses ''ThunkPassManager
 
 
 -- === Thunk evaluator base class discovery ===
 
 type family GetThunkEvaluationMonad m where
-  GetThunkEvaluationMonad (StateT (ThunkEvaluator _) m) = m
+  GetThunkEvaluationMonad (StateT (ThunkPassManager _) m) = m
   GetThunkEvaluationMonad (t m) = GetThunkEvaluationMonad m
 
 class Monad m => MonadThunkEvaluation m where
@@ -156,21 +159,27 @@ class Monad m => MonadThunkEvaluation m where
 
 instance {-# OVERLAPPABLE #-} (MonadThunkEvaluation m, GetThunkEvaluationMonad (t m) ~ GetThunkEvaluationMonad m, Monad (t m), MonadTrans t)
                  => MonadThunkEvaluation (t m)                         where liftThunkEvaluation = lift . liftThunkEvaluation
-instance Monad m => MonadThunkEvaluation (StateT (ThunkEvaluator n) m) where liftThunkEvaluation = lift
+instance Monad m => MonadThunkEvaluation (StateT (ThunkPassManager n) m) where liftThunkEvaluation = lift
 
 type MonadThunkSolver m
-  = ( StateData ThunkEvaluator m ~ ThunkEvaluator (GetThunkEvaluationMonad m)
-    , MonadState ThunkEvaluator m
+  = ( StateData ThunkPassManager m ~ ThunkPassManager (GetThunkEvaluationMonad m)
+    , MonadState ThunkPassManager m
     , MonadThunkEvaluation m
     , MonadThunk m
     , Monad (GetThunkEvaluationMonad m))
 
 
+-- === Running === --
+
+evalThunkPassManager :: Functor m => StateT (ThunkPassManager m) m a -> m a
+evalThunkPassManager = flip evalStateT (ThunkPassManager mempty)
+
+
 -- === Construction === --
 
-registerEvaluator :: (StateData ThunkEvaluator m ~ ThunkEvaluator n, MonadState ThunkEvaluator m)
-                  => (Val Thunk -> n (Val Thunk)) -> m ()
-registerEvaluator f = modify_ @ThunkEvaluator (wrapped %~ (<> [f]))
+registerThunkPass :: (StateData ThunkPassManager m ~ ThunkPassManager n, MonadState ThunkPassManager m)
+                  => (Value -> n Value) -> m ()
+registerThunkPass f = modify_ @ThunkPassManager (wrapped %~ (<> [f]))
 
 
 -- === Utils === --
@@ -191,9 +200,9 @@ getSortedThunks = do
 
 -- === Evaluation === --
 
-compileThunkEvaluator :: (MonadThunkEvaluation m, Monad (GetThunkEvaluationMonad m))
-                      => ThunkEvaluator (GetThunkEvaluationMonad m) -> (Val Thunk -> m (Val Thunk))
-compileThunkEvaluator (ThunkEvaluator fs) val = liftThunkEvaluation $ foldM (flip ($)) val fs
+compileThunkPassManager :: (MonadThunkEvaluation m, Monad (GetThunkEvaluationMonad m))
+                      => ThunkPassManager (GetThunkEvaluationMonad m) -> (Value -> m Value)
+compileThunkPassManager (ThunkPassManager fs) val = liftThunkEvaluation $ foldM (flip ($)) val fs
 
 evalThunks :: MonadThunkSolver m => m ()
 evalThunks = do
@@ -202,12 +211,12 @@ evalThunks = do
   where
     evalThunk :: MonadThunkSolver m => Thunk -> m ()
     evalThunk t = do
-      evf <- compileThunkEvaluator <$> get @ThunkEvaluator
+      evf <- compileThunkPassManager <$> get @ThunkPassManager
       val <- readThunk t
       val' <- evf val
       writeThunk t val'
 
-funcEvaluator :: MonadThunk m => Val Thunk -> m (Val Thunk)
+funcEvaluator :: MonadThunk m => Value -> m Value
 funcEvaluator val = case val ^. rawVal of
   App n ts -> do
     vals <- mapM readThunk ts
@@ -227,7 +236,7 @@ simplifyUnits (Number u a) = case Map.lookup "%" u of
   where mku   a = u & at "%" .~ a
         pow10 i = (100 * 10 ^ (i - 1))
 
-evalApp :: Monad m => Text -> [Val Thunk] -> m (Maybe (Val Thunk))
+evalApp :: Monad m => Text -> [Value] -> m (Maybe Value)
 evalApp n vs = return $ case (n, view rawVal <$> vs) of
   ("*", [Num (Number u a), Num (Number u' a')]) -> Just $ convert $ simplifyUnits $ Number (Map.unionWith (+) u u') (a * a')
   ("/", [Num (Number u a), Num (Number u' a')]) -> Just $ convert $ Number (Map.mergeWithKey (\_ x y -> let w = x + y in justIf (not $ w == 0) w) id id u (negate <$> u')) (a / a')
@@ -235,16 +244,10 @@ evalApp n vs = return $ case (n, view rawVal <$> vs) of
   _ -> Nothing
 
 
+-- === Helpers === --
 
-
-
-
-
-simpleVal :: RawVal a -> Val a
-simpleVal = Val mempty
-
-val :: MonadThunk m => RawVal Thunk -> m Thunk
-val = newThunk . Val mempty
+val :: MonadThunk m => RawValue -> m Thunk
+val = newThunk . ValueScheme mempty
 
 var    :: MonadThunk m => Text   -> m Thunk
 number :: MonadThunk m => Number -> m Thunk
@@ -265,30 +268,12 @@ appM1 n t1       = appM n [t1]
 appM2 n t1 t2    = appM n [t1, t2]
 appM3 n t1 t2 t3 = appM n [t1, t2, t3]
 
-
--- numApp :: Text -> ([Number] -> Number) -> [Val] -> Val
--- numApp n f args = case sequence (tryToNumber <$> args) of
---   Just args' -> number $ f args'
---   Nothing    -> app n args
-
--- numApp1 :: Text -> (Number -> Number)                     -> Val -> Val
--- numApp2 :: Text -> (Number -> Number -> Number)           -> Val -> Val -> Val
--- numApp3 :: Text -> (Number -> Number -> Number -> Number) -> Val -> Val -> Val -> Val
--- numApp1 n f t1       = numApp n (\[s1]         -> f s1)       [t1]
--- numApp2 n f t1 t2    = numApp n (\[s1, s2]     -> f s1 s2)    [t1, t2]
--- numApp3 n f t1 t2 t3 = numApp n (\[s1, s2, s3] -> f s1 s2 s3) [t1, t2, t3]
-
 app1 :: MonadThunk m => Text -> Thunk -> m Thunk
 app2 :: MonadThunk m => Text -> Thunk -> Thunk -> m Thunk
 app3 :: MonadThunk m => Text -> Thunk -> Thunk -> Thunk -> m Thunk
 app1 n t1       = app n [t1]
 app2 n t1 t2    = app n [t1, t2]
 app3 n t1 t2 t3 = app n [t1, t2, t3]
-
-
--- data Thunks = Map Text Value
-
-
 
 
 
@@ -305,7 +290,7 @@ data Def a = Def
 
 --- === Catamorphisms === --
 
-fixDef :: MonadThunk m => Def Thunk -> m (Def (Fix Val))
+fixDef :: MonadThunk m => Def Thunk -> m (Def (Fix ValueScheme))
 fixDef = mapM fixThunk
 
 
@@ -350,7 +335,7 @@ data Selector
   deriving (Show)
 
 type ThunkDecl = Decl Thunk
-type ValueDecl = Decl (Fix Val)
+type ValueDecl = Decl (Fix ValueScheme)
 
 makeLenses ''StyleSchemeT
 makeLenses ''Section

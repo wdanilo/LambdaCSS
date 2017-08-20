@@ -46,13 +46,13 @@ instance Convertible ValueDecl LessDecl where
     SectionDecl (Section s b)  -> LessSectionDecl (convert s) (convert <$> toList b)
     a                          -> error $ "TODO: " <> show a
 
-instance Convertible (Fix Val) LessVal where
-  convert (Fix (Val flags v)) = LessVal (Set.member "important" flags) $ convert v
+instance Convertible (Fix ValueScheme) LessVal where
+  convert (Fix (ValueScheme flags v)) = LessVal (Set.member "important" flags) $ convert v
 
-instance Convertible (Fix Val) LessRawVal where
-  convert (Fix (Val _ v)) = convert v
+instance Convertible (Fix ValueScheme) LessRawVal where
+  convert (Fix (ValueScheme _ v)) = convert v
 
-instance Convertible (RawVal (Fix Val)) LessRawVal where
+instance Convertible (RawValueScheme (Fix ValueScheme)) LessRawVal where
   convert = \case
     Var   a -> LessVar a
     Txt   a -> LessTxt a
