@@ -87,7 +87,7 @@ import           Data.IntMap.Strict (IntMap)
 
 root :: MonadThunk m => StyleT Thunk m ()
 root = do
-  position =: 2px * 2 + 1
+  position =: 200px / 2px + 1px
   -- position =: 2
   -- ".settings-view" $ do
   --

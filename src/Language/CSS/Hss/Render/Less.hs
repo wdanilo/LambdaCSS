@@ -58,7 +58,7 @@ instance Convertible (RawVal (Fix Val)) LessRawVal where
     App t a -> LessApp t (convert <$> a)
     Num (Number us a) -> LessNum . convert $ case Map.assocs us of
       [] -> rawNum
-      [(u,i)] -> if i == 1 then rawNum <> show u else error $ "Cannot generate non singleton unit value " <> show u <> "^" <> show i
+      [(u,i)] -> if i == 1 then rawNum <> convert u else error $ "Cannot generate non singleton unit value " <> show u <> "^" <> show i
       ls -> error "Cannot generate non singleton unit value " <> show ls
       where rawNum = if denominator a == 1 then show (numerator a) else show (round a :: Int)
 

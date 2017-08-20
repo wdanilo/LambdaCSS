@@ -118,10 +118,10 @@ type    UnitMap = Map Unit Int
 
 makeLenses ''Unit
 
-em, ex, percent, px, cm, mm, in', pt, pc, ch, rem, vh, vw, vmin, vmax :: Unit
+em, ex, pct, px, cm, mm, in', pt, pc, ch, rem, vh, vw, vmin, vmax :: Unit
 em      = Unit #em
 ex      = Unit #ex
-percent = Unit #percent
+pct     = Unit "%"
 px      = Unit #px
 cm      = Unit #cm
 mm      = Unit #mm
@@ -136,7 +136,12 @@ vmin    = Unit #vmin
 vmax    = Unit #vmax
 
 
-instance Show Unit where show = convert . unwrap
+instance Show Unit where show = show . unwrap
+instance {-# OVERLAPPABLE #-} Convertible a Text => Convertible a    Unit where convert = convertVia @Text
+instance {-# OVERLAPPABLE #-} Convertible Text a => Convertible Unit a    where convert = convertVia @Text
+instance                                            Convertible Text Unit where convert = coerce
+instance                                            Convertible Unit Text where convert = coerce
+instance IsString Unit where fromString = convert
 
 data Number = Number
   { _unitMap :: UnitMap
@@ -354,9 +359,20 @@ funcEvaluator val = case val ^. rawVal of
   _ -> return val
 
 
+simplifyUnits :: Number -> Number
+simplifyUnits (Number u a) = case Map.lookup "%" u of
+  Nothing -> Number u a
+  Just i  -> if length (Map.keys u) > 1
+    then               Number (mku Nothing)  (a / pow10 i)
+    else if i > 1 then Number (mku $ Just 1) (a / pow10 (i - 1))
+                  else Number u a
+  where mku   a = u & at "%" .~ a
+        pow10 i = (100 * 10 ^ (i - 1))
+
 evalApp :: Monad m => Text -> [Val Thunk] -> m (Maybe (Val Thunk))
 evalApp n vs = return $ case (n, view rawVal <$> vs) of
-  ("*", [Num (Number u a), Num (Number u' a')]) -> Just $ convert $ Number (Map.unionWith (+) u u') (a * a')
+  ("*", [Num (Number u a), Num (Number u' a')]) -> Just $ convert $ simplifyUnits $ Number (Map.unionWith (+) u u') (a * a')
+  ("/", [Num (Number u a), Num (Number u' a')]) -> Just $ convert $ Number (Map.mergeWithKey (\_ x y -> let w = x + y in justIf (not $ w == 0) w) id id u (negate <$> u')) (a / a')
   ("+", [Num (Number u a), Num (Number u' a')]) -> justIf (u == u') $ convert $ Number u $ a + a'
   _ -> Nothing
 
@@ -583,6 +599,9 @@ instance MonadThunk m => Num (StyleValueT Thunk m Thunk) where
   abs         = appM1 "abs"
   signum      = appM1 "signum"
 
+instance MonadThunk m => Fractional (StyleValueT Thunk m Thunk) where
+  fromRational = number . fromRational
+  (/)          = appM2 "/"
 
   -- number :: MonadThunk m => Number -> m Thunk
 
