@@ -205,6 +205,12 @@ data Val = Val
 makeLenses ''Val
 makeLenses ''Thunk
 
+
+-- FIXME: refactor
+newtype Evaluators m = Evaluators [Val -> m Val]
+makeLenses ''Evaluators
+
+
 instance Convertible Number RawVal where convert = Num
 
 instance {-# OVERLAPPABLE #-} Convertible a RawVal
@@ -289,21 +295,28 @@ getSortedThunks = do
         _        -> return (sorted, visitedMe)
       return (t : sorted', visited')
 
-evalThunks :: MonadThunk m => m ()
+evalThunks :: (MonadThunk m, n ~ GetEvaluationMonad m, StateData Evaluators m ~ Evaluators n, MonadState Evaluators m, MonadEvaluation m, Monad n) => m ()
 evalThunks = do
   thunks <- getSortedThunks
   mapM_ evalThunk thunks
 
-evalThunk :: MonadThunk m => Thunk -> m ()
+evalThunk :: (MonadThunk m, n ~ GetEvaluationMonad m, StateData Evaluators m ~ Evaluators n, MonadState Evaluators m, MonadEvaluation m, Monad n) => Thunk -> m ()
 evalThunk t = do
+  evf <- runEvaluators <$> get @Evaluators
   val <- readThunk t
-  case val ^. rawVal of
-    App n ts -> do
-      vals <- mapM readThunk ts
-      evalApp n vals >>= \case
-        Just val' -> writeThunk t (val' & valFlags .~ (val ^. valFlags))
-        Nothing   -> return ()
-    _ -> return ()
+  val' <- evf val
+  writeThunk t val'
+
+
+funcEvaluator :: MonadThunk m => Val -> m Val
+funcEvaluator val = case val ^. rawVal of
+  App n ts -> do
+    vals <- mapM readThunk ts
+    evalApp n vals >>= return . \case
+      Just val' -> val' & valFlags .~ (val ^. valFlags)
+      Nothing   -> val
+  _ -> return val
+
 
 evalApp :: Monad m => Text -> [Val] -> m (Maybe Val)
 evalApp n vs = return $ case (n, view rawVal <$> vs) of
@@ -311,8 +324,23 @@ evalApp n vs = return $ case (n, view rawVal <$> vs) of
   ("+", [Num (Number u a), Num (Number u' a')]) -> justIf (u == u') $ convert $ Number u $ a + a'
   _ -> Nothing
 
+-- type MonadEvaluators m = (MonadState Evaluators m, StateData Evaluators m ~ Evaluators m)
 
 
+runEvaluators :: (MonadEvaluation m, Monad (GetEvaluationMonad m)) => Evaluators (GetEvaluationMonad m) -> (Val -> m Val)
+runEvaluators (Evaluators fs) val = liftEvaluation $ foldM (flip ($)) val fs
+
+type family GetEvaluationMonad m where
+  GetEvaluationMonad (StateT (Evaluators _) m) = m
+  GetEvaluationMonad (t m) = GetEvaluationMonad m
+
+class Monad m => MonadEvaluation m where
+  liftEvaluation :: GetEvaluationMonad m a -> m a
+
+instance Monad m => MonadEvaluation (StateT (Evaluators n) m) where liftEvaluation = lift
+
+registerEvaluator :: (StateData Evaluators m ~ Evaluators n, MonadState Evaluators m) => (Val -> n Val) -> m ()
+registerEvaluator f = modify_ @Evaluators (wrapped %~ (<> [f]))
 -- Monad m => (a -> b -> m a) -> a -> [b] -> m a
 --                                    [Thunk]
 

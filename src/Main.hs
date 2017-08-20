@@ -147,7 +147,9 @@ main = do
     pprint r
     print =<< getSortedThunks
     pprint =<< get @ThunkMap
-    evalThunks
+    flip runStateT (Evaluators mempty) $ do
+      registerEvaluator funcEvaluator
+      evalThunks
     pprint =<< get @ThunkMap
     return r
   -- print =<< readMVar thunkMapRef
