@@ -13,6 +13,7 @@ import qualified Data.Map.Strict as Map
 import           Data.Ratio      (numerator, denominator)
 
 import Data.Functor.Foldable
+import Language.CSS.Hss.Value.Number
 
 ----------------------
 -- === Less AST === --

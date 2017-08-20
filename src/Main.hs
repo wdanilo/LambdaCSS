@@ -17,7 +17,7 @@ import           Data.Map (Map)
 
 import Control.Concurrent.MVar
 import System.IO.Unsafe
-
+import Language.CSS.Hss.Value.Unit
 import qualified Data.IntMap.Strict as IntMap
 import           Data.IntMap.Strict (IntMap)
 
