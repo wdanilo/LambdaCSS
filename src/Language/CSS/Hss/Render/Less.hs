@@ -47,7 +47,7 @@ instance Convertible ValueDecl LessDecl where
     a                          -> error $ "TODO: " <> show a
 
 instance Convertible (Fix Val) LessVal where
-  convert (Fix (Val flags v)) = LessVal (Set.member FlagImportant flags) $ convert v
+  convert (Fix (Val flags v)) = LessVal (Set.member "important" flags) $ convert v
 
 instance Convertible (Fix Val) LessRawVal where
   convert (Fix (Val _ v)) = convert v

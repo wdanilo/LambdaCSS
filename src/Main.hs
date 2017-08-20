@@ -148,7 +148,7 @@ main = do
 
     print =<< getSortedThunks
     pprint =<< get @ThunkMap
-    flip runStateT (Evaluators mempty) $ do
+    flip evalStateT (ThunkEvaluator mempty) $ do
       registerEvaluator funcEvaluator
       evalThunks
     pprint =<< get @ThunkMap

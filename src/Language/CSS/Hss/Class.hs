@@ -44,19 +44,6 @@ data Tone
 
 
 
-
-
--------------------------
--- === Value flags === --
--------------------------
-
-data ValFlag = FlagImportant deriving (Eq, Ord, Show)
-
-important :: ValFlag
-important = FlagImportant
-
-
-
 -------------------
 -- === Value === --
 -------------------
@@ -64,7 +51,7 @@ important = FlagImportant
 -- === Definition === --
 
 data Val a = Val
-  { _valFlags :: Set ValFlag
+  { _valFlags :: Set Text
   , _rawVal   :: RawVal a
   } deriving (Foldable, Functor, Traversable)
 
@@ -78,6 +65,12 @@ data RawVal a
 makeLenses  ''Val
 deriveShow1 ''Val
 deriveShow1 ''RawVal
+
+
+-- === Standard flag definitions === --
+
+important :: Text
+important = "important"
 
 
 -- === Instances === --
@@ -142,61 +135,45 @@ instance Convertible Thunk Int where convert = coerce
 
 
 
-
-
-
-
-
-
-
-
--- FIXME: refactor
-newtype Evaluators m = Evaluators [Val Thunk -> m (Val Thunk)]
-makeLenses ''Evaluators
-
-
-------------------------
--- === Definition === --
-------------------------
+------------------------------
+-- === Thunk evaluation === --
+------------------------------
 
 -- === Definition === --
 
-data Def a = Def
-  { _name :: Text
-  , _val  :: a
-  } deriving (Foldable, Functor, Traversable)
-
---- === Catamorphisms === --
-
-fixDef :: MonadThunk m => Def Thunk -> m (Def (Fix Val))
-fixDef = mapM fixThunk
+newtype ThunkEvaluator m = ThunkEvaluator [Val Thunk -> m (Val Thunk)]
+makeLenses ''ThunkEvaluator
 
 
--- === Instances === --
+-- === Thunk evaluator base class discovery ===
+
+type family GetThunkEvaluationMonad m where
+  GetThunkEvaluationMonad (StateT (ThunkEvaluator _) m) = m
+  GetThunkEvaluationMonad (t m) = GetThunkEvaluationMonad m
+
+class Monad m => MonadThunkEvaluation m where
+  liftThunkEvaluation :: GetThunkEvaluationMonad m a -> m a
+
+instance {-# OVERLAPPABLE #-} (MonadThunkEvaluation m, GetThunkEvaluationMonad (t m) ~ GetThunkEvaluationMonad m, Monad (t m), MonadTrans t)
+                 => MonadThunkEvaluation (t m)                         where liftThunkEvaluation = lift . liftThunkEvaluation
+instance Monad m => MonadThunkEvaluation (StateT (ThunkEvaluator n) m) where liftThunkEvaluation = lift
+
+type MonadThunkSolver m
+  = ( StateData ThunkEvaluator m ~ ThunkEvaluator (GetThunkEvaluationMonad m)
+    , MonadState ThunkEvaluator m
+    , MonadThunkEvaluation m
+    , MonadThunk m
+    , Monad (GetThunkEvaluationMonad m))
 
 
+-- === Construction === --
 
-instance Num (Unit -> Number) where
-  fromInteger i = flip Number (fromInteger i) . flip Map.singleton 1
+registerEvaluator :: (StateData ThunkEvaluator m ~ ThunkEvaluator n, MonadState ThunkEvaluator m)
+                  => (Val Thunk -> n (Val Thunk)) -> m ()
+registerEvaluator f = modify_ @ThunkEvaluator (wrapped %~ (<> [f]))
+
 
 -- === Utils === --
-
--- tryToNumber :: Val -> Maybe Number
--- tryToNumber v = case v ^. rawVal of
---   ValNum a -> Just a
---   _        -> Nothing
-
-data Evaluator = Evaluator { _computedThunks :: Set Thunk } deriving (Show)
-
--- computeThunks :: (MonadState Evaluator m, MonadThunk m) => m ()
--- computeThunks = do
---   tm <- get @ThunkMap
---   IntMap.keys
---
---
--- while there are unmarked nodes do
---     select an unmarked node n
---     visit(n)
 
 getSortedThunks :: MonadThunk m => m [Thunk]
 getSortedThunks = do
@@ -211,18 +188,24 @@ getSortedThunks = do
         _        -> return (sorted, visitedMe)
       return (t : sorted', visited')
 
-evalThunks :: (MonadThunk m, n ~ GetEvaluationMonad m, StateData Evaluators m ~ Evaluators n, MonadState Evaluators m, MonadEvaluation m, Monad n) => m ()
+
+-- === Evaluation === --
+
+compileThunkEvaluator :: (MonadThunkEvaluation m, Monad (GetThunkEvaluationMonad m))
+                      => ThunkEvaluator (GetThunkEvaluationMonad m) -> (Val Thunk -> m (Val Thunk))
+compileThunkEvaluator (ThunkEvaluator fs) val = liftThunkEvaluation $ foldM (flip ($)) val fs
+
+evalThunks :: MonadThunkSolver m => m ()
 evalThunks = do
   thunks <- getSortedThunks
   mapM_ evalThunk thunks
-
-evalThunk :: (MonadThunk m, n ~ GetEvaluationMonad m, StateData Evaluators m ~ Evaluators n, MonadState Evaluators m, MonadEvaluation m, Monad n) => Thunk -> m ()
-evalThunk t = do
-  evf <- runEvaluators <$> get @Evaluators
-  val <- readThunk t
-  val' <- evf val
-  writeThunk t val'
-
+  where
+    evalThunk :: MonadThunkSolver m => Thunk -> m ()
+    evalThunk t = do
+      evf <- compileThunkEvaluator <$> get @ThunkEvaluator
+      val <- readThunk t
+      val' <- evf val
+      writeThunk t val'
 
 funcEvaluator :: MonadThunk m => Val Thunk -> m (Val Thunk)
 funcEvaluator val = case val ^. rawVal of
@@ -251,25 +234,11 @@ evalApp n vs = return $ case (n, view rawVal <$> vs) of
   ("+", [Num (Number u a), Num (Number u' a')]) -> justIf (u == u') $ convert $ Number u $ a + a'
   _ -> Nothing
 
--- type MonadEvaluators m = (MonadState Evaluators m, StateData Evaluators m ~ Evaluators m)
 
 
-runEvaluators :: (MonadEvaluation m, Monad (GetEvaluationMonad m)) => Evaluators (GetEvaluationMonad m) -> (Val Thunk -> m (Val Thunk))
-runEvaluators (Evaluators fs) val = liftEvaluation $ foldM (flip ($)) val fs
 
-type family GetEvaluationMonad m where
-  GetEvaluationMonad (StateT (Evaluators _) m) = m
-  GetEvaluationMonad (t m) = GetEvaluationMonad m
 
-class Monad m => MonadEvaluation m where
-  liftEvaluation :: GetEvaluationMonad m a -> m a
 
-instance Monad m => MonadEvaluation (StateT (Evaluators n) m) where liftEvaluation = lift
-
-registerEvaluator :: (StateData Evaluators m ~ Evaluators n, MonadState Evaluators m) => (Val Thunk -> n (Val Thunk)) -> m ()
-registerEvaluator f = modify_ @Evaluators (wrapped %~ (<> [f]))
--- Monad m => (a -> b -> m a) -> a -> [b] -> m a
---                                    [Thunk]
 
 simpleVal :: RawVal a -> Val a
 simpleVal = Val mempty
@@ -318,6 +287,30 @@ app3 n t1 t2 t3 = app n [t1, t2, t3]
 
 
 -- data Thunks = Map Text Value
+
+
+
+
+
+------------------------
+-- === Definition === --
+------------------------
+
+-- === Definition === --
+
+data Def a = Def
+  { _name :: Text
+  , _val  :: a
+  } deriving (Foldable, Functor, Traversable)
+
+--- === Catamorphisms === --
+
+fixDef :: MonadThunk m => Def Thunk -> m (Def (Fix Val))
+fixDef = mapM fixThunk
+
+
+-- === Instances === --
+
 
 
 -- === Instances === --
