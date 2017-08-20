@@ -15,6 +15,7 @@ executables:
       - text
       - free
       - containers
+      - recursion-schemes
 
 default-extensions:
     - AllowAmbiguousTypes
