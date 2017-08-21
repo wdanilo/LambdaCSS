@@ -17,6 +17,7 @@ executables:
       - containers
       - recursion-schemes
       - bifunctors
+      - typelevel
       - deriving-compat
 
 default-extensions:

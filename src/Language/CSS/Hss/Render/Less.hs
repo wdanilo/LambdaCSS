@@ -11,6 +11,9 @@ import qualified Data.Set        as Set
 import           Data.Map.Strict (Map)
 import qualified Data.Map.Strict as Map
 import           Data.Ratio      (numerator, denominator)
+import           Data.Color
+import qualified Data.Char       as Char
+import qualified Data.Text       as Text
 
 import Data.Functor.Foldable
 import Language.CSS.Hss.Value.Number
@@ -62,6 +65,11 @@ instance Convertible (RawValueScheme (Fix ValueScheme)) LessRawVal where
       [(u,i)] -> if i == 1 then rawNum <> convert u else error $ "Cannot generate non singleton unit value " <> show u <> "^" <> show i
       ls -> error "Cannot generate non singleton unit value " <> show ls
       where rawNum = if denominator a == 1 then show (numerator a) else show (round a :: Int)
+    Col c   -> LessTxt $ convert val  where
+      col   = convert (c :: CSSColor) :: Color RGB
+      body  = intercalate "," $ show <$> [rnd $ col ^. r, rnd $ col ^. g, rnd $ col ^. b]
+      rnd c = round (c * 255) :: Int
+      val   = "rgb(" <> body <> ")"
 
 instance Convertible Selector Text where
   convert = \case
@@ -92,7 +100,10 @@ instance PrettyPrinter LessRawVal where
     LessVar   a -> a
     LessNum   a -> a
     LessTxt   a -> a
-    LessApp t a -> t <> " " <> intercalate " " (pretty <$> a)
+    LessApp t a -> if Text.all Char.isAlphaNum t
+      then t <> " " <> intercalate " " (pretty <$> a)
+      else pretty (unsafeHead a) <> " " <> t <> " " <> intercalate " " (pretty <$> unsafeTail a)
+
 
 ---------------------------
 -- === Less renderer === --

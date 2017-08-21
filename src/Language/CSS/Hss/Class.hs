@@ -18,6 +18,7 @@ import qualified Data.IntMap.Strict          as IntMap
 import           Data.Set                    (Set)
 import qualified Data.Set                    as Set
 import qualified Control.Lens                as Lens
+import           Data.Color
 import Prelude (round)
 
 import Control.Monad.Trans.Free hiding (wrap)
@@ -33,13 +34,6 @@ instance (PrimMonad m, Functor a) => PrimMonad (FreeT a m) where
 
 
 
-
---------------------
--- === Color === ---
---------------------
-
-data Tone
-  = RGB Rational Rational Rational
 
 
 
@@ -63,8 +57,17 @@ data RawValueScheme a
   = Var Text
   | Num Number
   | Txt Text
+  | Col CSSColor
   | App Text [a]
   deriving (Foldable, Functor, Show, Traversable)
+
+type CSSColor = Record '[Color RGB, Color HSL]
+
+
+-- === Utils === --
+
+simpleValueScheme :: RawValueScheme a -> ValueScheme a
+simpleValueScheme = ValueScheme mempty
 
 
 -- === Standard flag definitions === --
@@ -246,34 +249,29 @@ evalApp n vs = return $ case (n, view rawVal <$> vs) of
 
 -- === Helpers === --
 
-val :: MonadThunk m => RawValue -> m Thunk
-val = newThunk . ValueScheme mempty
+mkThunkRaw :: MonadThunk m => RawValue -> m Thunk
+mkThunkRaw = newThunk . simpleValueScheme
 
-var    :: MonadThunk m => Text   -> m Thunk
-number :: MonadThunk m => Number -> m Thunk
-txt    :: MonadThunk m => Text   -> m Thunk
-app    :: MonadThunk m => Text -> [Thunk] -> m Thunk
-var    = val .  Var
-number = val .  Num
-txt    = val .  Txt
-app    = val .: App
+mkVarThunk   :: MonadThunk m => Text     -> m Thunk
+mkNumThunk   :: MonadThunk m => Number   -> m Thunk
+mkTxtThunk   :: MonadThunk m => Text     -> m Thunk
+mkColorThunk :: MonadThunk m => CSSColor -> m Thunk
+mkAppThunk   :: MonadThunk m => Text -> [Thunk] -> m Thunk
+mkVarThunk   = mkThunkRaw .  Var
+mkNumThunk   = mkThunkRaw .  Num
+mkTxtThunk   = mkThunkRaw .  Txt
+mkAppThunk   = mkThunkRaw .: App
+mkColorThunk = mkThunkRaw .  Col
 
-appM   :: MonadThunk m => Text -> [m Thunk] -> m Thunk
-appM n = app n <=< sequence
+mkAppThunkM :: MonadThunk m => Text -> [m Thunk] -> m Thunk
+mkAppThunkM n = mkAppThunk n <=< sequence
 
-appM1 :: MonadThunk m => Text -> m Thunk -> m Thunk
-appM2 :: MonadThunk m => Text -> m Thunk -> m Thunk -> m Thunk
-appM3 :: MonadThunk m => Text -> m Thunk -> m Thunk -> m Thunk -> m Thunk
-appM1 n t1       = appM n [t1]
-appM2 n t1 t2    = appM n [t1, t2]
-appM3 n t1 t2 t3 = appM n [t1, t2, t3]
-
-app1 :: MonadThunk m => Text -> Thunk -> m Thunk
-app2 :: MonadThunk m => Text -> Thunk -> Thunk -> m Thunk
-app3 :: MonadThunk m => Text -> Thunk -> Thunk -> Thunk -> m Thunk
-app1 n t1       = app n [t1]
-app2 n t1 t2    = app n [t1, t2]
-app3 n t1 t2 t3 = app n [t1, t2, t3]
+mkAppThunkM1 :: MonadThunk m => Text -> m Thunk -> m Thunk
+mkAppThunkM2 :: MonadThunk m => Text -> m Thunk -> m Thunk -> m Thunk
+mkAppThunkM3 :: MonadThunk m => Text -> m Thunk -> m Thunk -> m Thunk -> m Thunk
+mkAppThunkM1 n t1       = mkAppThunkM n [t1]
+mkAppThunkM2 n t1 t2    = mkAppThunkM n [t1, t2]
+mkAppThunkM3 n t1 t2 t3 = mkAppThunkM n [t1, t2, t3]
 
 
 
@@ -388,7 +386,7 @@ deriving instance Traversable Decl
 
 
 --------------------------
--- === Expressions === --
+-- === Exprs === --
 --------------------------
 
 -- === Definition === --
@@ -396,7 +394,10 @@ deriving instance Traversable Decl
 --   and to awoid obscure inferencer messages.
 
 newtype ExprT      m a = ExprT (IdentityT    m a) deriving (Functor, Applicative, Monad, MonadTrans)
-type    StyleExprT v m = ExprT (StyleSchemeT v m)
+type    StyleExprSchemeT v m = ExprT (StyleSchemeT v m)
+-- type    ExprT m = StyleExprSchemeT Thunk m Thunk
+-- type    Expr = (forall m. MonadThunk m => ExprT m)
+newtype Expr = Expr (forall m. MonadThunk m => StyleSchemeT Thunk m Thunk)
 makeLenses ''ExprT
 
 
@@ -405,37 +406,76 @@ makeLenses ''ExprT
 runExprT :: ExprT m a -> m a
 runExprT = runIdentityT . unwrap
 
+runExpr :: MonadThunk m => Expr -> StyleSchemeT Thunk m Thunk
+runExpr (Expr e) = e
+
 
 -- === Assignments === --
 
-class                         (Monad m)                       => AutoAssignment t   m where assignM :: t -> ExprT m Thunk -> m ()
-instance {-# OVERLAPPABLE #-} (Monad m, MonadStyle m, t~Text) => AutoAssignment t   m where assignM t v = liftToFreeList =<< runExprT (DefDecl . Def t <$> v)
-instance {-# INCOHERENT #-}   (AutoAssignment t m)            => AutoAssignment [t] m where assignM t v = sequence_ $ (flip assignM v) <$> t
+class                         (Monad m)                       => AutoAssignment t   m where assignM :: t -> Expr -> m ()
+instance {-# OVERLAPPABLE #-} (t~Text, m ~ StyleSchemeT Thunk n, MonadThunk n) => AutoAssignment t   m where assignM t expr = liftToFreeList =<< (DefDecl . Def t <$> runExpr expr)
+-- instance {-# INCOHERENT #-}   (AutoAssignment t m)            => AutoAssignment [t] m where assignM t v = sequence_ $ (flip assignM v) <$> t
 
-assign :: AutoAssignment t m => t -> Thunk -> m ()
-assign t v = assignM t (pure v)
+-- assign :: AutoAssignment t m => t -> Thunk -> m ()
+-- assign t v = assignM t (pure v)
 
 infixl 0 =:
-(=:) :: AutoAssignment t m => t -> ExprT m Thunk -> m ()
+(=:) :: AutoAssignment t m => t -> Expr -> m ()
 (=:) = assignM
+
+
+-- === Constructors === --
+
+mkVarExpr   :: Text     -> Expr
+mkNumExpr   :: Number   -> Expr
+mkTxtExpr   :: Text     -> Expr
+mkColorExpr :: CSSColor -> Expr
+mkAppExpr   :: Text -> [Expr] -> Expr
+mkVarExpr   a    = Expr $ mkVarThunk   a
+mkNumExpr   a    = Expr $ mkNumThunk   a
+mkTxtExpr   a    = Expr $ mkTxtThunk   a
+mkColorExpr a    = Expr $ mkColorThunk a
+mkAppExpr   t as = Expr $ mkAppThunkM t (runExpr <$> as)
+
+mkAppExpr1  :: Text -> Expr -> Expr
+mkAppExpr2  :: Text -> Expr -> Expr -> Expr
+mkAppExpr3  :: Text -> Expr -> Expr -> Expr -> Expr
+mkAppExpr1 t a1       = mkAppExpr t [a1]
+mkAppExpr2 t a1 a2    = mkAppExpr t [a1,a2]
+mkAppExpr3 t a1 a2 a3 = mkAppExpr t [a1,a2,a3]
 
 
 -- === Literals lifting === --
 
-instance MonadThunk m => Num (Unit -> StyleExprT Thunk m Thunk) where
-  fromInteger = number .: fromInteger
+instance Num (Unit -> Expr) where
+  fromInteger = mkNumExpr .: fromInteger
 
-instance MonadThunk m => Num (StyleExprT Thunk m Thunk) where
-  fromInteger = number . Number mempty . fromInteger
-  (+)         = appM2 "+"
-  (-)         = appM2 "-"
-  (*)         = appM2 "*"
-  abs         = appM1 "abs"
-  signum      = appM1 "signum"
+instance Num Expr where
+  fromInteger = mkNumExpr . Number mempty . fromInteger
+  (+)         = mkAppExpr2 "+"
+  (-)         = mkAppExpr2 "-"
+  (*)         = mkAppExpr2 "*"
+  abs         = mkAppExpr1 "abs"
+  signum      = mkAppExpr1 "signum"
 
-instance MonadThunk m => Fractional (StyleExprT Thunk m Thunk) where
-  fromRational = number . Number mempty
-  (/)          = appM2 "/"
+-- instance MonadThunk m => Convertible Number (StyleExprSchemeT Thunk m Thunk) where
+--   convert = number
+--
+-- instance MonadThunk m => Fractional (StyleExprSchemeT Thunk m Thunk) where
+--   fromRational = number . Number mempty
+--   (/)          = mkAppThunkM2 "/"
+--
+-- instance Num (Unit -> ValueScheme a) where
+--   fromInteger = simpleValueScheme . Num .: fromInteger
+--
+-- instance (MonadThunk m, Convertible (Color c) CSSColor)
+--       => Convertible (Color c) (StyleExprSchemeT Thunk m Thunk) where
+--   convert = mkColorThunk . convert'
+--
+instance IsString Expr where
+  fromString = mkTxtExpr . convert
+
+
 
 
 -- === Instances === --
