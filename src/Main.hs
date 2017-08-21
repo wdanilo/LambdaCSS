@@ -53,7 +53,7 @@ marginMap = fromList
   [ (#base          , base)
   , (#panel         , base * 2)
   , (#item          , base)
-  , (#subSection    , uiSize / 2)
+  , (#subSection    , uiSize * 5)
   , (#sectionSide   , uiSize * 4)
   , (#sectionDesc   , uiSize * 1.5)
   , (#sectionBody   , uiSize * 3)
@@ -72,6 +72,7 @@ colorMap = fromList
 radiusMap :: Map Text Expr
 radiusMap = fromList
   [ (#button , 8px)
+  , (#card   , 40px)
   ]
 
 marginOf :: HasCallStack => Text -> Expr
@@ -249,7 +250,6 @@ root = do
           lineHeight =: menuItemOffset
           background =: none
           "&:hover" . setColor $ hover $ subtle $ colorOf #text
-          -- "&::before" $ width =: @component-icon-size
           setColor $ subtle $ colorOf #text
           iconStyle
 
@@ -277,7 +277,7 @@ root = do
   -- === Look === --
 
   #settingsView $ do
-    #panels  . #section $ "&, &.settings-panel" $ border =: 0
+    #panels  . #section $ "&, &.settings-panel" $ border =: 0 !important
     #section . #icon    $ "&.section-heading, &.sub-section-heading" $ do
       setSectionColor $ colorOf #text
       fontSize   =: fontSizeOf #section
@@ -286,8 +286,8 @@ root = do
       #badge $ do
         marginLeft =: 10px
         fontSize   =: 15px
-        -- color      =: secondary $ @text-color-secondary;
-        -- background: @level-color;
+        color      =: secondary $ colorOf #text
+        background =: colorOf #layer;
 
 
   -------------------
@@ -295,6 +295,13 @@ root = do
   -------------------
 
   #settingsView $ do
+
+    #packageContainer $ do
+      borderRadius    =: radiusOf #card
+      overflow        =: hidden
+      ":last-child .package-card" $ do
+        margin =: 0 !important
+
     #packageCard $ do
       border        =: 0
       borderRadius  =: 0
@@ -327,34 +334,20 @@ root = do
         "&:hover"          $ do color         =: colorOf #text
         "&.install-button" $ do btnVariant accentBgLayerColor
 
+    #packageDetail $ do
+      #section $ marginTop =: 0
+      #packageContainer $ do
+        marginBottom =: 20px
+        ".package-card:hover" $ background =: colorOf #layer
+
+      #breadcrumb $ do
+        padding      =: 0
+        marginLeft   =: marginOf #sectionSide
+        marginTop    =: (marginOf #item - fontSizeOf #base) / 2
+        marginBottom =: (marginOf #item - fontSizeOf #base) / 2
 
 
-    -- .package-detail {
-    --   .section {margin-top: 0;}
-    --   .package-container {
-    --     margin-bottom: 20px;
-    --     .package-card:hover { background: @layer-color; }
-    --   }
-    --   .breadcrumb {
-    --     padding: 0;
-    --     margin-left: @section-side-padding;
-    --     margin-top:   (@menu-item-offset - @font-size)/2;
-    --     margin-bottom:(@menu-item-offset - @font-size)/2;
-    --     // TODO make it nicer ^^^
-    --     // height: 100px;
-    --   }
-    -- }
 
--- style :: Style
--- style = do
---   position =: relative
---   border   =: 0
---   padding  =: 0
-
--- test :: Free (ListCons Int) ()
--- test = do
---   freeCons 1
---   freeCons 1
 
 
 
