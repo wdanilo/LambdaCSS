@@ -62,6 +62,7 @@ data RawValueScheme a
   | Txt Text
   | Col CSSColor
   | App Text [a]
+  | Lst [a]
   deriving (Foldable, Functor, Show, Traversable)
 
 type CSSColor = Record '[Color RGB, Color HSL]
@@ -205,7 +206,8 @@ getSortedThunks = do
     visit sorted visited t = if visited ^. contains (unwrap t) then return (sorted, visited) else do
       let visitedMe = visited & contains (unwrap t) .~ True
       (sorted', visited') <- readThunkRaw t >>= \case
-        App n ts -> foldM (uncurry visit) (sorted, visitedMe) ts
+        App _ ts -> foldM (uncurry visit) (sorted, visitedMe) ts
+        Lst   ts -> foldM (uncurry visit) (sorted, visitedMe) ts
         _        -> return (sorted, visitedMe)
       return (t : sorted', visited')
 
@@ -267,14 +269,18 @@ mkNumThunk   :: MonadThunk m => Number   -> m Thunk
 mkTxtThunk   :: MonadThunk m => Text     -> m Thunk
 mkColorThunk :: MonadThunk m => CSSColor -> m Thunk
 mkAppThunk   :: MonadThunk m => Text -> [Thunk] -> m Thunk
+mkLstThunk   :: MonadThunk m =>         [Thunk] -> m Thunk
 mkVarThunk   = mkThunkRaw .  Var
 mkNumThunk   = mkThunkRaw .  Num
 mkTxtThunk   = mkThunkRaw .  Txt
 mkAppThunk   = mkThunkRaw .: App
+mkLstThunk   = mkThunkRaw .  Lst
 mkColorThunk = mkThunkRaw .  Col
 
 mkAppThunkM :: MonadThunk m => Text -> [m Thunk] -> m Thunk
+mkLstThunkM :: MonadThunk m =>         [m Thunk] -> m Thunk
 mkAppThunkM n = mkAppThunk n <=< sequence
+mkLstThunkM   = mkLstThunk   <=< sequence
 
 mkAppThunkM1 :: MonadThunk m => Text -> m Thunk -> m Thunk
 mkAppThunkM2 :: MonadThunk m => Text -> m Thunk -> m Thunk -> m Thunk
@@ -381,7 +387,9 @@ instance (IsString (s -> StyleSchemeT v m a), KnownSymbol lab)
       (c:cs) -> (if Char.isUpper c then (\s -> '-' : Char.toLower c : s) else (c:))
               $ fromCamelCase cs
 
--- instance Lits.IsList  
+
+
+-- instance Lits.IsList
 
 -- List converions
 type instance Item (StyleSchemeT v m a) = Item (Unwrapped (StyleSchemeT v m a))
@@ -434,15 +442,26 @@ runExpr (Expr e) = e
 
 -- === Assignments === --
 
-class Monad m => AutoAssignment t m where
-  assignM :: t -> Expr -> m ()
+data Pattern
+  = SinglePattern Text
+  | MultiPattern  [Text]
+  deriving (Show)
 
-instance {-# OVERLAPPABLE #-}
-         (t~Text, m ~ StyleSchemeT Thunk n, MonadThunk n) => AutoAssignment t   m where assignM t expr = liftToFreeList =<< (DefDecl . Def t <$> runExpr expr)
-instance {-# INCOHERENT #-} (AutoAssignment t m)          => AutoAssignment [t] m where assignM t v = sequence_ $ (flip assignM v) <$> t
+instance KnownSymbol s
+      => IsLabel s Pattern where fromLabel  = fromString $ fromType @s
+instance IsString  Pattern where fromString = SinglePattern . fromString
 
-infixl 1 =:
-(=:) :: AutoAssignment t m => t -> Expr -> m ()
+instance Lits.IsList Pattern where
+  type Item Pattern = Text
+  fromList = MultiPattern
+
+assignM :: MonadThunk m => Pattern -> Expr -> StyleSchemeT Thunk m ()
+assignM pat expr = case pat of
+  SinglePattern t  -> liftToFreeList =<< (DefDecl . Def t <$> runExpr expr)
+  MultiPattern  ts -> sequence_ $ (flip assignM expr . SinglePattern) <$> ts
+
+infixr 0 =:
+(=:) :: MonadThunk m => Pattern -> Expr -> StyleSchemeT Thunk m ()
 (=:) = assignM
 
 
@@ -453,11 +472,13 @@ mkNumExpr   :: Number   -> Expr
 mkTxtExpr   :: Text     -> Expr
 mkColorExpr :: CSSColor -> Expr
 mkAppExpr   :: Text -> [Expr] -> Expr
+mkLstExpr   ::         [Expr] -> Expr
 mkVarExpr   a    = Expr $ mkVarThunk   a
 mkNumExpr   a    = Expr $ mkNumThunk   a
 mkTxtExpr   a    = Expr $ mkTxtThunk   a
 mkColorExpr a    = Expr $ mkColorThunk a
 mkAppExpr   t as = Expr $ mkAppThunkM t (runExpr <$> as)
+mkLstExpr     as = Expr $ mkLstThunkM   (runExpr <$> as)
 
 mkAppExpr1  :: Text -> Expr -> Expr
 mkAppExpr2  :: Text -> Expr -> Expr -> Expr
@@ -490,6 +511,21 @@ instance Num Expr where
   (*)         = mkAppExpr2 "*"
   abs         = mkAppExpr1 "abs"
   signum      = mkAppExpr1 "signum"
+
+-- | Syntax `margin := 0 0`
+instance {-# INCOHERENT #-} Eqs '[Expr,t2] => Num (t2 -> Expr) where
+  fromInteger t1 t2 = mkLstExpr [fromInteger t1, t2]
+  (+) = impossible; (-) = impossible; (*) = impossible; abs = impossible; signum = impossible
+
+-- | Syntax `margin := 0 0 0`
+instance {-# INCOHERENT #-} Eqs '[Expr,t2,t3] => Num (t2 -> t3 -> Expr) where
+  fromInteger t1 t2 t3 = mkLstExpr [fromInteger t1, t2, t3]
+  (+) = impossible; (-) = impossible; (*) = impossible; abs = impossible; signum = impossible
+
+-- | Syntax `margin := 0 0 0 0`
+instance {-# INCOHERENT #-} Eqs '[Expr,t2,t3,t4] => Num (t2 -> t3 -> t4 -> Expr) where
+  fromInteger t1 t2 t3 t4 = mkLstExpr [fromInteger t1, t2, t3, t4]
+  (+) = impossible; (-) = impossible; (*) = impossible; abs = impossible; signum = impossible
 
 -- | Syntax `var =: 1.5`
 instance Fractional Expr where

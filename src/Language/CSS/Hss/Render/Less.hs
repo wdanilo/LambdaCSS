@@ -15,9 +15,14 @@ import           Data.Color
 import qualified Data.Char       as Char
 import qualified Data.Text       as Text
 import           Data.Layout     hiding (render)
+import           Text.Printf
 
 import Data.Functor.Foldable
 import Language.CSS.Hss.Value.Number
+
+
+showF :: IsString s => Double -> s
+showF = fromString . printf "%f"
 
 ----------------------
 -- === Less AST === --
@@ -32,6 +37,7 @@ data LessRawVal
   = LessVar Text
   | LessNum Text
   | LessTxt Text
+  | LessLst [LessRawVal]
   | LessApp Text [LessRawVal]
   deriving (Show)
 
@@ -60,7 +66,8 @@ instance Convertible (RawValueScheme (Fix ValueScheme)) LessRawVal where
   convert = \case
     Var   a -> LessVar a
     Txt   a -> LessTxt a
-    App t a -> LessApp t (convert <$> a)
+    App t a -> LessApp t $ convert <$> a
+    Lst   a -> LessLst   $ convert <$> a
     Num (Number us a) -> LessNum . convert $ case Map.assocs us of
       [] -> rawNum
       [(u,i)] -> if i == 1 then rawNum <> convert u else error $ "Cannot generate non singleton unit value " <> show u <> "^" <> show i
@@ -69,7 +76,7 @@ instance Convertible (RawValueScheme (Fix ValueScheme)) LessRawVal where
     Col c   -> LessTxt $ convert val  where
       col   = convert (c :: CSSColor) :: Color RGB
       body  = intercalate "," (show <$> [rnd $ col ^. r, rnd $ col ^. g, rnd $ col ^. b])
-           <> "," <> show (col ^. a)
+           <> "," <> showF (col ^. a)
       rnd c = P.round (c * 255) :: Int
       val   = "rgba(" <> body <> ")"
 
@@ -102,6 +109,7 @@ instance PrettyPrinter LessRawVal where
     LessVar   a -> convert a
     LessNum   a -> convert a
     LessTxt   a -> convert a
+    LessLst   a -> intercalate space $ parensed . pretty <$> a 
     LessApp t a -> if Text.all Char.isAlphaNum t
       then convert t <> parensed (intercalate ", " (pretty <$> a))
       else pretty (unsafeHead a) <+> convert t <+> intercalate space (pretty <$> unsafeTail a)

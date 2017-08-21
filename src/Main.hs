@@ -1,7 +1,7 @@
 {-# LANGUAGE NoMonomorphismRestriction   #-}
 {-# LANGUAGE PatternSynonyms   #-}
 {-# LANGUAGE OverloadedStrings #-}
--- {-# LANGUAGE OverloadedLists   #-}
+{-# LANGUAGE OverloadedLists   #-}
 
 module Main where
 
@@ -56,12 +56,14 @@ marginMap = fromList
   , (#sectionSide, uiSize * 4)
   , (#sectionDesc, uiSize * 1.5)
   , (#sectionBody, uiSize * 3)
+  , (#description, uiSize)
   ]
   where base = 20px
 
 colorMap :: Map Text Expr
 colorMap = fromList
-  [ (#text , rgba 1 1 1 0.6)
+  [ (#text  , rgba 1 1 1 0.6)
+  , (#layer , rgba 1 1 1 0.05)
   ]
 
 radiusMap :: Map Text Expr
@@ -109,8 +111,8 @@ setColor c = do
   "&::before" $ color =: c
 
 setSectionColor c = do
-	color =: c;
-	"&::before" $ color =: "fadeout"  c (10pct)
+  color =: c;
+  "&::before" $ color =: "fadeout"  c (10pct)
 
 menuItemOffset :: Expr
 menuItemOffset = marginOf #item * 2 + (fontSizeOf #base)
@@ -127,6 +129,9 @@ hover a = "fadein" a (4pct)
 
 selected :: Expr -> Expr
 selected a = "fadein" a (8pct)
+
+disabled :: Expr -> Expr
+disabled a = "fadeout" a (100 * 0.5 * alpha a)
 
 -- c =: hover $ subtle $ colorOf #text
 root :: MonadThunk m => StyleT m ()
@@ -211,12 +216,65 @@ root = do
       fontWeight =: 200
       iconStyleForHack #section
       #badge $ do
-        marginLeft =: 10px;
-        fontSize   =: 15px;
+        marginLeft =: 10px
+        fontSize   =: 15px
         -- color      =: secondary $ @text-color-secondary;
         -- background: @level-color;
 
 
+  -------------------
+  -- === Cards === --
+  -------------------
+
+  #settingsView $ do
+    #packageCard $ do
+      border        =: 0
+      borderRadius  =: 0
+      padding       =: 19px
+      background    =: colorOf #layer
+      marginBottom  =: 3px
+      "&:hover"    $ background =: hover    $ colorOf #layer
+      "&.disabled" $ background =: disabled $ colorOf #layer
+
+      #packageDescription $ do
+        display =: block
+        margin  =: 0 0 0 0
+      -- }
+      -- .meta-controls       { margin:        0;                         }
+      -- .card-name           { margin-bottom: @title-margin;             }
+      -- .package-name        { color:         @text-color;               }
+      -- .package-version     { margin-left:   @secondary-info-offset;
+      --                        color:         @text-color-subtle;        }
+      -- .meta-user           { display:       none;                      }
+      -- .status-indicator    { display:       none;                      }
+      -- .package-description { color:         @text-color-description;
+      --                        font-size:     @font-size-description;    }
+      -- .stats .value        { color:         @text-color-subtle;
+      --                        font-size:     @font-size-description;    }
+      -- .stats .icon         {                .icon-style-description(1);}
+      -- .btn-toolbar .icon   { color:         @text-color-secondary;
+      --   &::before          { color:         @text-color-secondary;
+      --                        margin-right:  0.6em;                     }
+      --   &:hover            { color:         @text-color;               }
+      --   &.install-button   {                .btn-variant(@accent-bg-layer-color);}
+      -- }
+
+
+    -- .package-detail {
+    --   .section {margin-top: 0;}
+    --   .package-container {
+    --     margin-bottom: 20px;
+    --     .package-card:hover { background: @layer-color; }
+    --   }
+    --   .breadcrumb {
+    --     padding: 0;
+    --     margin-left: @section-side-padding;
+    --     margin-top:   (@menu-item-offset - @font-size)/2;
+    --     margin-bottom:(@menu-item-offset - @font-size)/2;
+    --     // TODO make it nicer ^^^
+    --     // height: 100px;
+    --   }
+    -- }
 
 -- style :: Style
 -- style = do
