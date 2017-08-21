@@ -29,7 +29,7 @@ import qualified Data.Layout as Doc
 data Font = Font { _size :: Expr }
 makeLenses ''Font
 
-instance Mempty    Font where mempty  = Font (12 px)
+instance Mempty    Font where mempty  = Font (12px)
 instance Semigroup Font where (<>)    = undefined -- FIXME
 instance P.Monoid  Font where mempty  = mempty
                               mappend = (<>)
@@ -86,8 +86,10 @@ scaledIconStyle scale = do
     marginLeft    =: round (fss * iconOffset)
     verticalAlign =: middle
 
--- setColor :: Style
--- setColor = do
+setColor :: MonadThunk m => Expr -> StyleT m ()
+setColor c = do
+  color =: c
+  "&::before" $ color =: c
 
 menuItemOffset :: Expr
 menuItemOffset = marginOf #item * 2 + (fontSizeOf #base)
@@ -101,7 +103,7 @@ root = do
     ------------------
 
     ".config-menu" $ do
-      position =: relative
+      position   =: relative
       marginLeft =: marginOf #panel
       minWidth   =: uiSize * 14 -- FIXME
       maxWidth   =: uiSize * 20 -- FIXME
@@ -111,7 +113,8 @@ root = do
 
       ".nav > li" $ do
         borderRadius =: 0
-        border       =: 0
+        -- "&:hover" $ do
+
 
         ".icon" $ do
           padding    =: 0
@@ -169,4 +172,6 @@ main = do
 
   -- pprint r
   return ()
-  putStrLn $ convert $ Doc.renderLineBlock $ Doc.render $ render @Pretty @Less fdecls
+  let css = Doc.renderLineBlock $ Doc.render $ render @Pretty @Less fdecls
+  putStrLn $ convert css
+  writeFile "/home/wdanilo/github/luna-dark-ui/styles/test.css" $ convert css

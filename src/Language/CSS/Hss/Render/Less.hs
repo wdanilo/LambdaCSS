@@ -68,9 +68,10 @@ instance Convertible (RawValueScheme (Fix ValueScheme)) LessRawVal where
       where rawNum = if denominator a == 1 then show (numerator a) else show (P.round a :: Int)
     Col c   -> LessTxt $ convert val  where
       col   = convert (c :: CSSColor) :: Color RGB
-      body  = intercalate "," $ show <$> [rnd $ col ^. r, rnd $ col ^. g, rnd $ col ^. b]
+      body  = intercalate "," (show <$> [rnd $ col ^. r, rnd $ col ^. g, rnd $ col ^. b])
+           <> "," <> show (col ^. a)
       rnd c = P.round (c * 255) :: Int
-      val   = "rgb(" <> body <> ")"
+      val   = "rgba(" <> body <> ")"
 
 instance Convertible Selector Text where
   convert = \case

@@ -30,6 +30,13 @@ instance (PrimMonad m, Functor a) => PrimMonad (FreeT a m) where
   type PrimState (FreeT a m) = PrimState m
   primitive = lift . primitive ; {-# INLINE primitive #-}
 
+type family Eqs  ts   :: Constraint where
+  Eqs '[]       = ()
+  Eqs (t ': ts) = Eqs' t ts
+
+type family Eqs' t ts :: Constraint where
+  Eqs' p '[]       = ()
+  Eqs' p (t ': ts) = (p ~ t, Eqs' p ts)
 
 
 -------------------
@@ -420,7 +427,7 @@ instance {-# OVERLAPPABLE #-}
          (t~Text, m ~ StyleSchemeT Thunk n, MonadThunk n) => AutoAssignment t   m where assignM t expr = liftToFreeList =<< (DefDecl . Def t <$> runExpr expr)
 instance {-# INCOHERENT #-} (AutoAssignment t m)          => AutoAssignment [t] m where assignM t v = sequence_ $ (flip assignM v) <$> t
 
-infixl 0 =:
+infixl 1 =:
 (=:) :: AutoAssignment t m => t -> Expr -> m ()
 (=:) = assignM
 
@@ -441,9 +448,13 @@ mkAppExpr   t as = Expr $ mkAppThunkM t (runExpr <$> as)
 mkAppExpr1  :: Text -> Expr -> Expr
 mkAppExpr2  :: Text -> Expr -> Expr -> Expr
 mkAppExpr3  :: Text -> Expr -> Expr -> Expr -> Expr
-mkAppExpr1 t a1       = mkAppExpr t [a1]
-mkAppExpr2 t a1 a2    = mkAppExpr t [a1,a2]
-mkAppExpr3 t a1 a2 a3 = mkAppExpr t [a1,a2,a3]
+mkAppExpr4  :: Text -> Expr -> Expr -> Expr -> Expr -> Expr
+mkAppExpr5  :: Text -> Expr -> Expr -> Expr -> Expr -> Expr -> Expr
+mkAppExpr1 t a1             = mkAppExpr t [a1]
+mkAppExpr2 t a1 a2          = mkAppExpr t [a1,a2]
+mkAppExpr3 t a1 a2 a3       = mkAppExpr t [a1,a2,a3]
+mkAppExpr4 t a1 a2 a3 a4    = mkAppExpr t [a1,a2,a3,a4]
+mkAppExpr5 t a1 a2 a3 a4 a5 = mkAppExpr t [a1,a2,a3,a4,a5]
 
 
 -- === Utils === --
@@ -490,18 +501,21 @@ instance HasFlag Expr where
     modifyThunk t (valFlags %~ Set.insert f)
     return t
 
---
--- instance Num (Unit -> ValueScheme a) where
---   fromInteger = simpleValueScheme . Num .: fromInteger
---
--- instance (MonadThunk m, Convertible (Color c) CSSColor)
---       => Convertible (Color c) (StyleExprSchemeT Thunk m Thunk) where
---   convert = mkColorThunk . convert'
---
+-- | Syntax `var =: rgb 1 0 0`
+instance Convertible (Color c) CSSColor
+      => Convertible (Color c) Expr where
+  convert = mkColorExpr . convert'
+
+-- | Syntax `var =: "foo"`
 instance IsString Expr where
   fromString = mkTxtExpr . convert
 
-
+-- | Syntax `var =: "foo" t1 t2 ...`
+instance (t~Expr)                       => IsString (t -> Expr)                         where fromString = mkAppExpr1 . convert
+instance (t~Expr, Eqs '[t,t2])          => IsString (t -> t2 -> Expr)                   where fromString = mkAppExpr2 . convert
+instance (t~Expr, Eqs '[t,t2,t3])       => IsString (t -> t2 -> t3 -> Expr)             where fromString = mkAppExpr3 . convert
+instance (t~Expr, Eqs '[t,t2,t3,t4])    => IsString (t -> t2 -> t3 -> t4 -> Expr)       where fromString = mkAppExpr4 . convert
+instance (t~Expr, Eqs '[t,t2,t3,t4,t5]) => IsString (t -> t2 -> t3 -> t4 -> t5 -> Expr) where fromString = mkAppExpr5 . convert
 
 
 -- === Instances === --

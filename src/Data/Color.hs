@@ -96,17 +96,21 @@ instance {-# OVERLAPPABLE #-} (BiConvertible c c', c' ~ DefaultComponentColor p,
 type instance DefaultComponentSpace "r" = RGB
 type instance DefaultComponentSpace "g" = RGB
 type instance DefaultComponentSpace "b" = RGB
+type instance DefaultComponentSpace "a" = RGB -- FIXME[WD]: it should not behave like this
 
 instance HasComponent "r" (Color RGB) where component = wrapped . colorRGB_r
 instance HasComponent "g" (Color RGB) where component = wrapped . colorRGB_g
 instance HasComponent "b" (Color RGB) where component = wrapped . colorRGB_b
+instance HasComponent "a" (Color RGB) where component = wrapped . colorRGB_a
 
 r :: HasComponent "r" a => Lens' a Double
 g :: HasComponent "g" a => Lens' a Double
 b :: HasComponent "b" a => Lens' a Double
+a :: HasComponent "a" a => Lens' a Double
 r = component @"r"
 g = component @"g"
 b = component @"b"
+a = component @"a"
 
 --
 -- instance Convertible (Record ts) a => Convertible (Record ts) (Tone a) where convert = wrap . convert . unwrap
