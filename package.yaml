@@ -19,6 +19,7 @@ executables:
       - bifunctors
       - typelevel
       - deriving-compat
+      - layouting
 
 default-extensions:
     - AllowAmbiguousTypes

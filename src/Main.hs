@@ -6,7 +6,7 @@ module Main where
 
 import Control.Monad.State.Layered
 import qualified Prelude as P
-import Prologue hiding (none, (%=), assign)
+import Prologue hiding (none, (%=), assign, round)
 import Control.Monad.Free
 -- import qualified Main2 as M2
 
@@ -22,6 +22,9 @@ import Language.CSS.Hss.Value.Number
 import qualified Data.IntMap.Strict as IntMap
 import           Data.IntMap.Strict (IntMap)
 import Data.Color
+-- import Data.Layout hiding (render)
+import qualified Data.Layout as Doc
+
 
 data Font = Font { _size :: Expr }
 makeLenses ''Font
@@ -66,21 +69,22 @@ uiSize :: Expr
 uiSize = 14px
 --
 --
--- iconOffset = 0.4
+iconOffset :: Expr
+iconOffset = 0.4
 
--- iconStyle       :: Monad m => StyleT m ()
--- scaledIconStyle :: Monad m => Val -> StyleT m ()
--- iconStyle = scaledIconStyle 1.5
--- scaledIconStyle scale = do
---   let fss = round2 (fontSizeOf #base * scale)
---   "&::before" $ do
---     [ fontSize,
---       width,
---       height,
---       lineHeight] =: fss
---     top           =: 0
---     marginLeft    =: round2 (fss * iconOffset)
---     verticalAlign =: middle
+iconStyle       :: MonadThunk m => StyleT m ()
+scaledIconStyle :: MonadThunk m => Expr -> StyleT m ()
+iconStyle = scaledIconStyle 1.5
+scaledIconStyle scale = do
+  let fss = round (fontSizeOf #base * scale)
+  "&::before" $ do
+    [ fontSize,
+      width,
+      height,
+      lineHeight] =: fss
+    top           =: 0
+    marginLeft    =: round (fss * iconOffset)
+    verticalAlign =: middle
 
 -- setColor :: Style
 -- setColor = do
@@ -90,7 +94,6 @@ menuItemOffset = marginOf #item * 2 + (fontSizeOf #base)
 
 root :: MonadThunk m => StyleT m ()
 root = do
-  position =: 2
   ".settings-view" $ do
 
     ------------------
@@ -115,8 +118,8 @@ root = do
           fontSize   =: fontSizeOf #base
           marginLeft =: marginOf #item
           lineHeight =: menuItemOffset
-          -- background =: none !important
-          -- iconStyle
+          background =: none !important
+          iconStyle
 
 
 
@@ -166,4 +169,4 @@ main = do
 
   -- pprint r
   return ()
-  putStrLn $ convert $ render @Pretty @Less fdecls
+  putStrLn $ convert $ Doc.renderLineBlock $ Doc.render $ render @Pretty @Less fdecls

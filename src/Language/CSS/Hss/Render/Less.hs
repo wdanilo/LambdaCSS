@@ -2,7 +2,7 @@
 
 module Language.CSS.Hss.Render.Less where
 
-import Prologue
+import Prologue as P hiding (nested)
 import Language.CSS.Hss.Class
 
 
@@ -14,6 +14,7 @@ import           Data.Ratio      (numerator, denominator)
 import           Data.Color
 import qualified Data.Char       as Char
 import qualified Data.Text       as Text
+import           Data.Layout     hiding (render)
 
 import Data.Functor.Foldable
 import Language.CSS.Hss.Value.Number
@@ -64,11 +65,11 @@ instance Convertible (RawValueScheme (Fix ValueScheme)) LessRawVal where
       [] -> rawNum
       [(u,i)] -> if i == 1 then rawNum <> convert u else error $ "Cannot generate non singleton unit value " <> show u <> "^" <> show i
       ls -> error "Cannot generate non singleton unit value " <> show ls
-      where rawNum = if denominator a == 1 then show (numerator a) else show (round a :: Int)
+      where rawNum = if denominator a == 1 then show (numerator a) else show (P.round a :: Int)
     Col c   -> LessTxt $ convert val  where
       col   = convert (c :: CSSColor) :: Color RGB
       body  = intercalate "," $ show <$> [rnd $ col ^. r, rnd $ col ^. g, rnd $ col ^. b]
-      rnd c = round (c * 255) :: Int
+      rnd c = P.round (c * 255) :: Int
       val   = "rgb(" <> body <> ")"
 
 instance Convertible Selector Text where
@@ -81,15 +82,15 @@ instance Convertible Selector Text where
 -- === Pretty printer === --
 ----------------------------
 
-class PrettyPrinter a where pretty :: a -> Text
+class PrettyPrinter a where pretty :: a -> Doc Text
 
 instance PrettyPrinter [LessDecl] where
-  pretty = intercalate "\n" . fmap pretty
+  pretty = foldr (</>) mempty . fmap pretty
 
 instance PrettyPrinter LessDecl where
   pretty = \case
-    LessDefDecl     t v -> t <> ": " <> pretty v <> ";"
-    LessSectionDecl s d -> s <> " {\n" <> pretty d <> "\n}"
+    LessDefDecl     t v -> convert t <> ":" <+> pretty v <> ";"
+    LessSectionDecl s d -> convert s <+> "{" </> (indented . block $ pretty d) </> "}"
 
 instance PrettyPrinter LessVal where
   pretty (LessVal imp v) = go $ pretty v where
@@ -97,12 +98,12 @@ instance PrettyPrinter LessVal where
 
 instance PrettyPrinter LessRawVal where
   pretty = \case
-    LessVar   a -> a
-    LessNum   a -> a
-    LessTxt   a -> a
+    LessVar   a -> convert a
+    LessNum   a -> convert a
+    LessTxt   a -> convert a
     LessApp t a -> if Text.all Char.isAlphaNum t
-      then t <> " " <> intercalate " " (pretty <$> a)
-      else pretty (unsafeHead a) <> " " <> t <> " " <> intercalate " " (pretty <$> unsafeTail a)
+      then convert t <> parensed (intercalate ", " (pretty <$> a))
+      else pretty (unsafeHead a) <+> convert t <+> intercalate space (pretty <$> unsafeTail a)
 
 
 ---------------------------

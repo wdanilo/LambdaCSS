@@ -6,8 +6,7 @@
 module Language.CSS.Hss.Class where
 
 import qualified Prelude as P
-import Prologue hiding (assign)
--- import Control.Monad.Free
+import Prologue hiding (assign, properFraction, truncate, round, ceiling, floor)
 
 import           Control.Monad.State.Layered
 import           Control.Monad.Free.List
@@ -19,6 +18,7 @@ import           Data.Set                    (Set)
 import qualified Data.Set                    as Set
 import qualified Control.Lens                as Lens
 import           Data.Color
+import           Data.Layout                 (Doc)
 import Prelude (round)
 
 import Control.Monad.Trans.Free hiding (wrap)
@@ -29,12 +29,6 @@ import Language.CSS.Hss.Value.Number
 instance (PrimMonad m, Functor a) => PrimMonad (FreeT a m) where
   type PrimState (FreeT a m) = PrimState m
   primitive = lift . primitive ; {-# INLINE primitive #-}
-
-
-
-
-
-
 
 
 
@@ -70,7 +64,13 @@ simpleValueScheme :: RawValueScheme a -> ValueScheme a
 simpleValueScheme = ValueScheme mempty
 
 
--- === Standard flag definitions === --
+-- === Flags === --
+
+class HasFlag a where
+  addFlag :: Text -> a -> a
+
+(!) :: HasFlag a => a -> Text -> a
+(!) = flip addFlag
 
 important :: Text
 important = "important"
@@ -241,9 +241,10 @@ simplifyUnits (Number u a) = case Map.lookup "%" u of
 
 evalApp :: Monad m => Text -> [Value] -> m (Maybe Value)
 evalApp n vs = return $ case (n, view rawVal <$> vs) of
-  ("*", [Num (Number u a), Num (Number u' a')]) -> Just $ convert $ simplifyUnits $ Number (Map.unionWith (+) u u') (a * a')
-  ("/", [Num (Number u a), Num (Number u' a')]) -> Just $ convert $ Number (Map.mergeWithKey (\_ x y -> let w = x + y in justIf (not $ w == 0) w) id id u (negate <$> u')) (a / a')
-  ("+", [Num (Number u a), Num (Number u' a')]) -> justIf (u == u') $ convert $ Number u $ a + a'
+  ("*"     , [Num (Number u a), Num (Number u' a')]) -> Just $ convert $ simplifyUnits $ Number (Map.unionWith (+) u u') (a * a')
+  ("/"     , [Num (Number u a), Num (Number u' a')]) -> Just $ convert $ Number (Map.mergeWithKey (\_ x y -> let w = x + y in justIf (not $ w == 0) w) id id u (negate <$> u')) (a / a')
+  ("+"     , [Num (Number u a), Num (Number u' a')]) -> justIf (u == u') $ convert $ Number u $ a + a'
+  ("round" , [Num (Number u a)])                     -> Just $ convert $ Number u (convert @Int $ P.round a)
   _ -> Nothing
 
 
@@ -385,9 +386,9 @@ deriving instance Traversable Decl
 
 
 
---------------------------
--- === Exprs === --
---------------------------
+------------------
+-- === Expr === --
+------------------
 
 -- === Definition === --
 -- | The `ExprT` type is defined only to make automatic lifting of literals more type-precise
@@ -412,12 +413,12 @@ runExpr (Expr e) = e
 
 -- === Assignments === --
 
-class                         (Monad m)                       => AutoAssignment t   m where assignM :: t -> Expr -> m ()
-instance {-# OVERLAPPABLE #-} (t~Text, m ~ StyleSchemeT Thunk n, MonadThunk n) => AutoAssignment t   m where assignM t expr = liftToFreeList =<< (DefDecl . Def t <$> runExpr expr)
--- instance {-# INCOHERENT #-}   (AutoAssignment t m)            => AutoAssignment [t] m where assignM t v = sequence_ $ (flip assignM v) <$> t
+class Monad m => AutoAssignment t m where
+  assignM :: t -> Expr -> m ()
 
--- assign :: AutoAssignment t m => t -> Thunk -> m ()
--- assign t v = assignM t (pure v)
+instance {-# OVERLAPPABLE #-}
+         (t~Text, m ~ StyleSchemeT Thunk n, MonadThunk n) => AutoAssignment t   m where assignM t expr = liftToFreeList =<< (DefDecl . Def t <$> runExpr expr)
+instance {-# INCOHERENT #-} (AutoAssignment t m)          => AutoAssignment [t] m where assignM t v = sequence_ $ (flip assignM v) <$> t
 
 infixl 0 =:
 (=:) :: AutoAssignment t m => t -> Expr -> m ()
@@ -445,11 +446,18 @@ mkAppExpr2 t a1 a2    = mkAppExpr t [a1,a2]
 mkAppExpr3 t a1 a2 a3 = mkAppExpr t [a1,a2,a3]
 
 
+-- === Utils === --
+
+class SemiRealFrac a where
+  truncate       :: a -> a
+  round          :: a -> a
+  ceiling        :: a -> a
+  floor          :: a -> a
+
+
 -- === Literals lifting === --
 
-instance Num (Unit -> Expr) where
-  fromInteger = mkNumExpr .: fromInteger
-
+-- | Syntax `var =: 12`
 instance Num Expr where
   fromInteger = mkNumExpr . Number mempty . fromInteger
   (+)         = mkAppExpr2 "+"
@@ -458,12 +466,30 @@ instance Num Expr where
   abs         = mkAppExpr1 "abs"
   signum      = mkAppExpr1 "signum"
 
--- instance MonadThunk m => Convertible Number (StyleExprSchemeT Thunk m Thunk) where
---   convert = number
---
--- instance MonadThunk m => Fractional (StyleExprSchemeT Thunk m Thunk) where
---   fromRational = number . Number mempty
---   (/)          = mkAppThunkM2 "/"
+-- | Syntax `var =: 1.5`
+instance Fractional Expr where
+  fromRational = mkNumExpr . Number mempty
+  (/)          = mkAppExpr2 "/"
+
+-- | Syntax `var =: round a`
+instance SemiRealFrac Expr where
+  truncate = mkAppExpr1 "truncate"
+  round    = mkAppExpr1 "round"
+  ceiling  = mkAppExpr1 "ceiling"
+  floor    = mkAppExpr1 "floor"
+
+-- | Syntax `var =: 12px`
+instance Num (Unit -> Expr) where
+  fromInteger = mkNumExpr .: fromInteger
+
+-- | Syntax `var =: foo !important`
+-- FIXME: Shouldnt we move Flags to AST trans node?
+instance HasFlag Expr where
+  addFlag f (Expr expr) = Expr $ do
+    t <- expr
+    modifyThunk t (valFlags %~ Set.insert f)
+    return t
+
 --
 -- instance Num (Unit -> ValueScheme a) where
 --   fromInteger = simpleValueScheme . Num .: fromInteger
@@ -493,7 +519,7 @@ instance PrimMonad m => PrimMonad (ExprT m) where
 -- ==== Definition === --
 
 class Renderer style t where
-  render :: [ValueDecl] -> Text
+  render :: [ValueDecl] -> Doc Text
 
 
 -- === Styles === --

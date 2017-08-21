@@ -16,6 +16,9 @@ packages:
   - ../libs/monad-branch
   - ../libs/monoid
   - ../libs/functor-utils
+  - ../libs/layouting
+  - ../libs/terminal-text
+
 
 
 flags: {}
