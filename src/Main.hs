@@ -50,16 +50,18 @@ fontSizeOf t = fontOf t ^. size
 
 marginMap :: Map Text Expr
 marginMap = fromList
-  [ (#base          , base)
-  , (#panel         , base * 2)
-  , (#item          , base)
-  , (#subSection    , uiSize * 5)
-  , (#sectionSide   , uiSize * 4)
-  , (#sectionDesc   , uiSize * 1.5)
-  , (#sectionBody   , uiSize * 3)
-  , (#description   , uiSize)
-  , (#title         , uiSize)
-  , (#secondaryInfo , uiSize)
+  [ (#base               , base)
+  , (#panel              , base * 2)
+  , (#item               , base)
+  , (#subSection         , uiSize * 5)
+  , (#sectionSide        , uiSize * 4)
+  , (#sectionDesc        , uiSize * 1.5)
+  , (#sectionBody        , uiSize * 3)
+  , (#description        , uiSize)
+  , (#title              , uiSize)
+  , (#secondaryInfo      , uiSize)
+  , (#option             , uiSize * 1.5)
+  , (#optionDescription  , uiSize / 2.5)
   ]
   where base = 20px
 
@@ -290,6 +292,22 @@ root = do
         background =: colorOf #layer;
 
 
+  -- === Controls layout === --
+
+  #settingsView $ do
+    #controlGroup $ do
+      marginTop    =: marginOf #option !important
+      marginBottom =: marginOf #option !important
+      #checkbox $ do
+        margin =: 0;
+        #settingDescription $ margin =: [marginOf #optionDescription, 0]
+
+    #settingDescription $ do
+      color        =: secondary $ colorOf #text
+      marginTop    =: 5px
+      marginBottom =: 4px
+
+
   -------------------
   -- === Cards === --
   -------------------
@@ -347,9 +365,59 @@ root = do
         marginBottom =: (marginOf #item - fontSizeOf #base) / 2
 
 
+    ----------------------
+    -- === Specific === --
+    ----------------------
+
+    -- === Top level seciton notes === --
+
+    "[id=\"editor-settings-note\"], [id=\"core-settings-note\"], .native-key-bindings:not(.table)" $ do
+      color =: secondary $ colorOf #text
+      "&::before, .icon::before" $ display =: none
 
 
+    -- === Key binding list === --
 
+    ".native-key-bindings.table.text" $ do
+      "table, th, td, tr"  $ do
+        border =: none
+        "&:first-child" $ borderRadius =: [20px, 0, 0, 20px]
+        "&:last-child"  $ borderRadius =: [0, 20px, 20px, 0]
+      "tr:nth-child(even)" $ backgroundColor =: disabled $ colorOf #layer
+
+
+    -- === Theme chooser === --
+
+    #themesPanel . #themesPicker $ do
+      marginTop =: marginOf #sectionBody
+      #controlGroup $ do
+        lineHeight =: 100pct
+        margin     =: (mkTxtExpr "1.5px") !important -- FIXME [WD]: why setting 2px margin here do not overlap while 1px does?
+        #settingDescription $ display =: none
+        #controls . #controlLabel $ do
+          display =: inlineBlock
+          float   =: left
+          width   =: 150px
+          #text $ do
+            fontWeight =: normal
+            margin     =: 0
+            marginTop  =: 10px
+
+        #controls . #selectContainer $ do
+          ":first-child" $ do
+            borderRadius =: 0
+          ":last-child" $ do
+            background   =: colorOf #layer
+            borderRadius =: 0
+            marginLeft   =: 0
+
+        "&:first-child" . #controls . #selectContainer $ do
+          ":first-child" $ borderTopLeftRadius  =: 12px
+          ":last-child"  $ borderTopRightRadius =: 12px
+
+        "&:last-child" . #controls . #selectContainer $ do
+          ":first-child" $ borderBottomLeftRadius  =: 12px
+          ":last-child"  $ borderBottomRightRadius =: 12px
 
 
 -- modifyMVar :: MVar a -> (a -> IO (a, b)) -> IO b
