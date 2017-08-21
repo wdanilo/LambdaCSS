@@ -6,7 +6,7 @@ module Main where
 
 import Control.Monad.State.Layered
 import qualified Prelude as P
-import Prologue hiding (none, (%=), assign, round)
+import Prologue hiding (none, (%=), assign, round, left, right)
 import Control.Monad.Free
 -- import qualified Main2 as M2
 
@@ -54,6 +54,11 @@ marginMap = fromList
   ]
   where base = 20px
 
+colorMap :: Map Text Expr
+colorMap = fromList
+  [ (#text , rgba 1 1 1 0.6)
+  ]
+
 radiusMap :: Map Text Expr
 radiusMap = fromList
   [ (#button , 8px)
@@ -65,8 +70,11 @@ marginOf t = marginMap ^?! ix t
 radiusOf :: Text -> Expr
 radiusOf t = radiusMap ^?! ix t
 
+colorOf :: Text -> Expr
+colorOf t = colorMap ^?! ix t
+
 uiSize :: Expr
-uiSize = 14px
+uiSize = 12px
 --
 --
 iconOffset :: Expr
@@ -83,7 +91,7 @@ scaledIconStyle scale = do
       height,
       lineHeight] =: fss
     top           =: 0
-    marginLeft    =: round (fss * iconOffset)
+    marginRight   =: round (fss * iconOffset)
     verticalAlign =: middle
 
 setColor :: MonadThunk m => Expr -> StyleT m ()
@@ -94,6 +102,20 @@ setColor c = do
 menuItemOffset :: Expr
 menuItemOffset = marginOf #item * 2 + (fontSizeOf #base)
 
+-- Warning: Less "fade" casts argument to percent
+subtle :: Expr -> Expr
+subtle a = "fade" a (100 * 0.4 * alpha a)
+
+alpha :: Expr -> Expr
+alpha a = "alpha" a
+
+hover :: Expr -> Expr
+hover a = "fadein" a (4pct)
+
+selected :: Expr -> Expr
+selected a = "fadein" a (8pct)
+
+-- c =: hover $ subtle $ colorOf #text
 root :: MonadThunk m => StyleT m ()
 root = do
   ".settings-view" $ do
@@ -112,9 +134,14 @@ root = do
       padding    =: 0
 
       ".nav > li" $ do
-        borderRadius =: 0
-        -- "&:hover" $ do
+        borderRadius =: radiusOf #button
+        "&:hover" $ do
+          ".icon" $ setColor $ hover $ subtle $ colorOf #text
+          backgroundColor =: hover (rgba 1 1 1 0)
 
+        "&.active" . "&, &:hover" $ do
+          ".icon" $ setColor $ colorOf #text
+          background =: selected (rgba 1 1 1 0)
 
         ".icon" $ do
           padding    =: 0
@@ -122,9 +149,23 @@ root = do
           marginLeft =: marginOf #item
           lineHeight =: menuItemOffset
           background =: none !important
+          setColor . subtle $ colorOf #text
           iconStyle
 
+      ".button-area" $ do
+        margin =: 0
 
+        ".btn" $ do
+          whiteSpace =: initial
+          textAlign  =: left
+          padding    =: 0
+          marginLeft =: marginOf #item
+          lineHeight =: menuItemOffset
+          background =: none
+          "&:hover" . setColor $ hover $ subtle $ colorOf #text
+          -- "&::before" $ width =: @component-icon-size
+          setColor $ subtle $ colorOf #text
+          iconStyle
 
 
 

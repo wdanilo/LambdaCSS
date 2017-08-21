@@ -150,3 +150,4 @@ xmp           = "xmp"
 
 none          = "none"
 middle        = "middle"
+initial       = "initial"

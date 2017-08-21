@@ -403,9 +403,9 @@ deriving instance Traversable Decl
 
 newtype ExprT      m a = ExprT (IdentityT    m a) deriving (Functor, Applicative, Monad, MonadTrans)
 type    StyleExprSchemeT v m = ExprT (StyleSchemeT v m)
--- type    ExprT m = StyleExprSchemeT Thunk m Thunk
--- type    Expr = (forall m. MonadThunk m => ExprT m)
-newtype Expr = Expr (forall m. MonadThunk m => StyleSchemeT Thunk m Thunk)
+
+-- newtype Style = Style (forall m. MonadThunk m => ...)
+newtype Expr  = Expr  (forall m. MonadThunk m => StyleSchemeT Thunk m Thunk)
 makeLenses ''ExprT
 
 

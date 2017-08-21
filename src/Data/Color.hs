@@ -79,7 +79,10 @@ type instance ColorDefinition HSL = ColorHSL
 makeLenses ''ColorHSL
 
 rgb :: Convertible' (Color RGB) color => Double -> Double -> Double -> color
-rgb r g b = convert' . Color @RGB $ ColorRGB r g b 1
+rgb r g b = rgba r g b 1
+
+rgba :: Convertible' (Color RGB) color => Double -> Double -> Double -> Double -> color
+rgba r g b a = convert' . Color @RGB $ ColorRGB r g b a
 
 
 instance Convertible (Color HSL) (Color RGB) where convert = error "todo"
