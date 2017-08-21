@@ -491,6 +491,9 @@ mkAppExpr3 t a1 a2 a3       = mkAppExpr t [a1,a2,a3]
 mkAppExpr4 t a1 a2 a3 a4    = mkAppExpr t [a1,a2,a3,a4]
 mkAppExpr5 t a1 a2 a3 a4 a5 = mkAppExpr t [a1,a2,a3,a4,a5]
 
+var :: Text -> Expr
+var = mkVarExpr
+
 
 -- === Utils === --
 
@@ -502,6 +505,28 @@ class SemiRealFrac a where
 
 
 -- === Literals lifting === --
+
+-- TODO[WD]: Think about AutoList lifting for expressions (to allow for example `foo =: (0px) 0 0 0`)
+-- class AutoList a where
+--   autoList :: Expr -> a
+
+-- instance AutoList Expr where autoList = id
+-- instance (e~Expr, AutoList f) => AutoList (e -> f) where
+--   autoList a b = autoList $ mkLstExpr [a, b]
+-- instance (e~Expr, AutoList f) => AutoList (e -> f) where
+--   autoList (Expr ma) (Expr mb) = autoList $ Expr $ do
+--     ta <- ma
+--     tb <- mb
+--     va <- readThunk ta
+--     let va' = case va of
+--           ValueScheme fs (Lst lst) -> ValueScheme fs (Lst $ lst <> [tb])
+--           t                        -> t
+--     newThunk va'
+
+-- | Syntax `margin =: [0,0,0,0]`
+instance Lits.IsList Expr where
+  type Item Expr = Expr
+  fromList = mkLstExpr
 
 -- | Syntax `var =: 12`
 instance Num Expr where
@@ -542,6 +567,8 @@ instance SemiRealFrac Expr where
 -- | Syntax `var =: 12px`
 instance Num (Unit -> Expr) where
   fromInteger = mkNumExpr .: fromInteger
+-- instance Num (Unit -> f -> g) where
+--   fromInteger i u
 
 -- | Syntax `var =: foo !important`
 -- FIXME: Shouldnt we move Flags to AST trans node?

@@ -31,32 +31,35 @@ data Font = Font { _size :: Expr }
 makeLenses ''Font
 
 instance Mempty    Font where mempty  = Font (12px)
-instance Semigroup Font where (<>)    = undefined -- FIXME
-instance P.Monoid  Font where mempty  = mempty
-                              mappend = (<>)
+-- instance Semigroup Font where (<>)    = undefined -- FIXME
+-- instance P.Monoid  Font where mempty  = mempty
+--                               mappend = (<>)
 
 fontMap :: Map Text Font
 fontMap = fromList
-  [ (#base    , Font (12px))
-  , (#section , Font (36px))
+  [ (#base       , Font (12px))
+  , (#section    , Font (36px))
+  , (#description, Font (13px))
   ]
 
-fontOf :: Text -> Font
-fontOf t = fontMap ^. ix t
+fontOf :: HasCallStack => Text -> Font
+fontOf t = fontMap ^?! ix t
 
-fontSizeOf :: Text -> Expr
+fontSizeOf :: HasCallStack => Text -> Expr
 fontSizeOf t = fontOf t ^. size
 
 marginMap :: Map Text Expr
 marginMap = fromList
-  [ (#base  , base)
-  , (#panel , base * 2)
-  , (#item  , base)
-  , (#subSection, uiSize / 2)
-  , (#sectionSide, uiSize * 4)
-  , (#sectionDesc, uiSize * 1.5)
-  , (#sectionBody, uiSize * 3)
-  , (#description, uiSize)
+  [ (#base          , base)
+  , (#panel         , base * 2)
+  , (#item          , base)
+  , (#subSection    , uiSize / 2)
+  , (#sectionSide   , uiSize * 4)
+  , (#sectionDesc   , uiSize * 1.5)
+  , (#sectionBody   , uiSize * 3)
+  , (#description   , uiSize)
+  , (#title         , uiSize)
+  , (#secondaryInfo , uiSize)
   ]
   where base = 20px
 
@@ -71,13 +74,13 @@ radiusMap = fromList
   [ (#button , 8px)
   ]
 
-marginOf :: Text -> Expr
+marginOf :: HasCallStack => Text -> Expr
 marginOf t = marginMap ^?! ix t
 
-radiusOf :: Text -> Expr
+radiusOf :: HasCallStack => Text -> Expr
 radiusOf t = radiusMap ^?! ix t
 
-colorOf :: Text -> Expr
+colorOf :: HasCallStack => Text -> Expr
 colorOf t = colorMap ^?! ix t
 
 uiSize :: Expr
@@ -121,6 +124,9 @@ menuItemOffset = marginOf #item * 2 + (fontSizeOf #base)
 subtle :: Expr -> Expr
 subtle a = "fade" a (100 * 0.4 * alpha a)
 
+secondary :: Expr -> Expr
+secondary a = "fade" a (100 * 0.5 * alpha a)
+
 alpha :: Expr -> Expr
 alpha a = "alpha" a
 
@@ -130,8 +136,70 @@ hover a = "fadein" a (4pct)
 selected :: Expr -> Expr
 selected a = "fadein" a (8pct)
 
+highlighted :: Expr -> Expr
+highlighted a = "fadein" a (8pct)
+
 disabled :: Expr -> Expr
-disabled a = "fadeout" a (100 * 0.5 * alpha a)
+disabled a = "fade" a (100 * 0.5 * alpha a)
+
+darken :: Expr -> Expr -> Expr
+darken = "darken"
+
+lighten :: Expr -> Expr -> Expr
+lighten = "lighten"
+
+white = rgb 1 1 1
+black = rgb 0 0 0
+
+
+focusMixin :: MonadThunk m => StyleT m ()
+focusMixin = do
+  outline     =: none
+  borderColor =: accentColor
+  boxShadow   =: [0,0,0,1px, accentColor]
+
+
+
+btnDefault :: MonadThunk m => Expr -> Expr -> Expr -> Expr -> StyleT m ()
+btnDefault baseColor hoverColor selectedColor textColor = do
+  color             =: textColor
+  textShadow        =: none
+  backgroundColor   =: baseColor
+  "&:hover" $ color =: highlighted $ colorOf #text
+  "&:active"   $ do
+    background      =: darken baseColor (4pct)
+    boxShadow       =: none
+  "&.selected" $ do
+    background      =: selectedColor;
+  "&.selected:focus, &.selected:hover" $ do
+    background      =: lighten selectedColor (2pct)
+  "&:focus" focusMixin
+
+
+btnVariant :: MonadThunk m => Expr -> StyleT m ()
+btnVariant baseColor = do
+  let ncolor = "contrast" baseColor white black (15pct)
+  btnDefault baseColor
+             (lighten baseColor (3pct))
+             ("saturate" (darken baseColor (12pct)) (20pct))
+             (highlighted $ colorOf #text)
+
+  color =: ncolor;
+
+  "&:hover, &:focus" $ color =: ncolor
+  "&:focus" $ do
+    borderColor    =: transparent
+    backgroundClip =: paddingBox
+    -- boxShadow: inset 0 0 0 1px fade(@base-border-color, 50%), 0 0 0 1px @color;
+
+  "&.icon:before" $ color =: ncolor;
+
+
+-- === Raw Less bindings === --
+-- TODO: majority of the bindings should be removed and re-implemented here
+accentColor        = var "accent-color"
+accentBgLayerColor = var "accent-bg-layer-color"
+
 
 -- c =: hover $ subtle $ colorOf #text
 root :: MonadThunk m => StyleT m ()
@@ -200,7 +268,7 @@ root = do
       margin  =: marginOf #sectionSide
       #sectionContainer $
         maxWidth =: 600px;
-      ".section-heading, .sub-section-heading" $ do
+      "section-heading, .sub-section-heading" $ do
         marginBottom =: marginOf #sectionDesc
       #sectionBody $
         marginTop =: marginOf #sectionBody;
@@ -238,26 +306,27 @@ root = do
 
       #packageDescription $ do
         display =: block
-        margin  =: 0 0 0 0
-      -- }
-      -- .meta-controls       { margin:        0;                         }
-      -- .card-name           { margin-bottom: @title-margin;             }
-      -- .package-name        { color:         @text-color;               }
-      -- .package-version     { margin-left:   @secondary-info-offset;
-      --                        color:         @text-color-subtle;        }
-      -- .meta-user           { display:       none;                      }
-      -- .status-indicator    { display:       none;                      }
-      -- .package-description { color:         @text-color-description;
-      --                        font-size:     @font-size-description;    }
-      -- .stats .value        { color:         @text-color-subtle;
-      --                        font-size:     @font-size-description;    }
-      -- .stats .icon         {                .icon-style-description(1);}
-      -- .btn-toolbar .icon   { color:         @text-color-secondary;
-      --   &::before          { color:         @text-color-secondary;
-      --                        margin-right:  0.6em;                     }
-      --   &:hover            { color:         @text-color;               }
-      --   &.install-button   {                .btn-variant(@accent-bg-layer-color);}
-      -- }
+        margin  =: [marginOf #description, 0]
+
+      #metaControls        $ do margin        =: 0
+      #cardName            $ do marginBottom  =: marginOf #title
+      #packageName         $ do color         =: colorOf  #text
+      #packageVersion      $ do marginLeft    =: marginOf #secondaryInfo
+                                color         =: subtle $ colorOf #text
+      #metaUser            $ do display       =: none
+      #statusIndicator     $ do display       =: none
+      #packageDescription  $ do color         =: secondary $ colorOf #text
+                                fontSize      =: fontSizeOf #description
+      #stats . #value      $ do color         =: subtle $ colorOf #text
+                                fontSize      =: fontSizeOf #description
+      #stats . #icon       $ scaledIconStyleFor 1 #description
+      #btnToolbar . #icon  $ do
+        color =: secondary $ colorOf #text
+        "&::before"        $ do color         =: secondary $ colorOf #text
+                                marginRight   =: 7px
+        "&:hover"          $ do color         =: colorOf #text
+        "&.install-button" $ do btnVariant accentBgLayerColor
+
 
 
     -- .package-detail {

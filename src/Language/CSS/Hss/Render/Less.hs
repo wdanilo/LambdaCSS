@@ -106,10 +106,10 @@ instance PrettyPrinter LessVal where
 
 instance PrettyPrinter LessRawVal where
   pretty = \case
-    LessVar   a -> convert a
+    LessVar   a -> "@" <> convert a
     LessNum   a -> convert a
     LessTxt   a -> convert a
-    LessLst   a -> intercalate space $ parensed . pretty <$> a 
+    LessLst   a -> intercalate space $ parensed . pretty <$> a
     LessApp t a -> if Text.all Char.isAlphaNum t
       then convert t <> parensed (intercalate ", " (pretty <$> a))
       else pretty (unsafeHead a) <+> convert t <+> intercalate space (pretty <$> unsafeTail a)
