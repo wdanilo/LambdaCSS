@@ -1,6 +1,7 @@
 {-# LANGUAGE NoMonomorphismRestriction   #-}
 {-# LANGUAGE PatternSynonyms   #-}
 {-# LANGUAGE OverloadedStrings #-}
+-- {-# LANGUAGE OverloadedLists   #-}
 
 module Main where
 
@@ -51,6 +52,10 @@ marginMap = fromList
   [ (#base  , base)
   , (#panel , base * 2)
   , (#item  , base)
+  , (#subSection, uiSize / 2)
+  , (#sectionSide, uiSize * 4)
+  , (#sectionDesc, uiSize * 1.5)
+  , (#sectionBody, uiSize * 3)
   ]
   where base = 20px
 
@@ -81,10 +86,14 @@ iconOffset :: Expr
 iconOffset = 0.4
 
 iconStyle       :: MonadThunk m => StyleT m ()
-scaledIconStyle :: MonadThunk m => Expr -> StyleT m ()
-iconStyle = scaledIconStyle 1.5
-scaledIconStyle scale = do
-  let fss = round (fontSizeOf #base * scale)
+scaledIconStyleFor' :: MonadThunk m => Bool -> Expr -> Text -> StyleT m ()
+iconStyle    = iconStyleFor #base
+iconStyleFor = scaledIconStyleFor 1.5
+iconStyleForHack = scaledIconStyleFor' True 1.5
+scaledIconStyleFor = scaledIconStyleFor' False
+scaledIconStyleFor' useHack scale s = do
+  let fss = round (fontSizeOf s * scale)
+  when useHack $ lineHeight =: fss
   "&::before" $ do
     [ fontSize,
       width,
@@ -92,12 +101,16 @@ scaledIconStyle scale = do
       lineHeight] =: fss
     top           =: 0
     marginRight   =: round (fss * iconOffset)
-    verticalAlign =: middle
+    verticalAlign =: if useHack then bottom else middle
 
 setColor :: MonadThunk m => Expr -> StyleT m ()
 setColor c = do
   color =: c
   "&::before" $ color =: c
+
+setSectionColor c = do
+	color =: c;
+	"&::before" $ color =: "fadeout"  c (10pct)
 
 menuItemOffset :: Expr
 menuItemOffset = marginOf #item * 2 + (fontSizeOf #base)
@@ -118,13 +131,13 @@ selected a = "fadein" a (8pct)
 -- c =: hover $ subtle $ colorOf #text
 root :: MonadThunk m => StyleT m ()
 root = do
-  ".settings-view" $ do
 
-    ------------------
-    -- === Menu === --
-    ------------------
+  ------------------
+  -- === Menu === --
+  ------------------
 
-    ".config-menu" $ do
+  #settingsView $ do
+    #configMenu $ do
       position   =: relative
       marginLeft =: marginOf #panel
       minWidth   =: uiSize * 14 -- FIXME
@@ -136,14 +149,14 @@ root = do
       ".nav > li" $ do
         borderRadius =: radiusOf #button
         "&:hover" $ do
-          ".icon" $ setColor $ hover $ subtle $ colorOf #text
+          #icon $ setColor $ hover $ subtle $ colorOf #text
           backgroundColor =: hover (rgba 1 1 1 0)
 
         "&.active" . "&, &:hover" $ do
-          ".icon" $ setColor $ colorOf #text
+          #icon $ setColor $ colorOf #text
           background =: selected (rgba 1 1 1 0)
 
-        ".icon" $ do
+        #icon $ do
           padding    =: 0
           fontSize   =: fontSizeOf #base
           marginLeft =: marginOf #item
@@ -152,10 +165,10 @@ root = do
           setColor . subtle $ colorOf #text
           iconStyle
 
-      ".button-area" $ do
+      #buttonArea $ do
         margin =: 0
 
-        ".btn" $ do
+        #btn $ do
           whiteSpace =: initial
           textAlign  =: left
           padding    =: 0
@@ -166,6 +179,42 @@ root = do
           -- "&::before" $ width =: @component-icon-size
           setColor $ subtle $ colorOf #text
           iconStyle
+
+
+  ----------------------
+  -- === Sections === --
+  ----------------------
+
+  -- === Layout === --
+
+  #settingsView $ do
+    ".panels-item > .section:first-child" $ marginTop =: 0
+    #subSection $ marginTop =: marginOf #subSection
+    #section $ do
+      padding =: 0 !important
+      margin  =: marginOf #sectionSide
+      #sectionContainer $
+        maxWidth =: 600px;
+      ".section-heading, .sub-section-heading" $ do
+        marginBottom =: marginOf #sectionDesc
+      #sectionBody $
+        marginTop =: marginOf #sectionBody;
+
+
+  -- === Look === --
+
+  #settingsView $ do
+    #panels  . #section $ "&, &.settings-panel" $ border =: 0
+    #section . #icon    $ "&.section-heading, &.sub-section-heading" $ do
+      setSectionColor $ colorOf #text
+      fontSize   =: fontSizeOf #section
+      fontWeight =: 200
+      iconStyleForHack #section
+      #badge $ do
+        marginLeft =: 10px;
+        fontSize   =: 15px;
+        -- color      =: secondary $ @text-color-secondary;
+        -- background: @level-color;
 
 
 

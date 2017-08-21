@@ -19,6 +19,8 @@ import qualified Data.Set                    as Set
 import qualified Control.Lens                as Lens
 import           Data.Color
 import           Data.Layout                 (Doc)
+import qualified Data.Char                   as Char
+import qualified GHC.Exts                    as Lits
 import Prelude (round)
 
 import Control.Monad.Trans.Free hiding (wrap)
@@ -366,8 +368,20 @@ fixDecl = mapM fixThunk
 -- Selectors
 instance IsString Selector where
   fromString = SimpleSelector . fromString
-instance {-# OVERLAPPABLE #-} (s ~ StyleSchemeT v (StyleSchemeT v m) (), a ~ (), Monad m) => IsString (s -> StyleSchemeT v m a) where
+instance {-# OVERLAPPABLE #-} (s ~ StyleSchemeT v (StyleSchemeT v m) (), a ~ (), Monad m)
+      => IsString (s -> StyleSchemeT v m a) where
   fromString sel sect = embedSectionDecl (Section (fromString sel) <$> joinStyleT sect)
+
+-- | Syntax `#settingsView $ do ...` <=> `.settingsView {...}`
+instance (IsString (s -> StyleSchemeT v m a), KnownSymbol lab)
+      => IsLabel lab (s -> StyleSchemeT v m a) where
+  fromLabel = fromString . ('.':) . fromCamelCase $ fromType @lab where
+    fromCamelCase = \case
+      []     -> []
+      (c:cs) -> (if Char.isUpper c then (\s -> '-' : Char.toLower c : s) else (c:))
+              $ fromCamelCase cs
+
+-- instance Lits.IsList  
 
 -- List converions
 type instance Item (StyleSchemeT v m a) = Item (Unwrapped (StyleSchemeT v m a))
