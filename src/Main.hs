@@ -201,6 +201,7 @@ btnVariant baseColor = do
 -- === Raw Less bindings === --
 -- TODO: majority of the bindings should be removed and re-implemented here
 accentColor        = var "accent-color"
+accentColorSubtle  = var "accent-color-subtle"
 accentBgLayerColor = var "accent-bg-layer-color"
 
 
@@ -420,7 +421,110 @@ root = do
           ":last-child"  $ borderBottomRightRadius =: 12px
 
 
+  ------------------------
+  -- === Components === --
+  ------------------------
+
+  -- === Links === --
+
+  #settingsView . ".link, .link:hover" $ do
+		color =: accentColorSubtle
+
+
+  -- === Mini editor === --
+
+  ".editor.mini" . "&, &.is-focused" $ do
+    background =: colorOf #layer
+    border     =: none
+    #placeholderText $ do
+      color =: subtle $ colorOf #text
+
+
+  -- === Drop-down lists === --
+
+  #formControl $ do
+    border    =: 0
+    fontSize  =: fontSizeOf #base * 1.25
+    paddingTop    =: 0
+    paddingBottom =: 0
+    borderRadius  =: 20px
+    "&, &:active, &:hover" $ do
+      background =: colorOf #layer !important
+
+
+  -- === Checkbox === --
+
+
+  -- @basic-spacing: 0.8em;
+  --
+  -- // @switch-on-color:  hsl(65, 30%, 47%);
+  -- // @switch-on-color:  hsl(0,0%,40%);//@accent-color-subtle;
+  -- @switch-on-color:  @accent-color-subtle;
+  -- @switch-off-color: @tiny-layer-color;
+  --
+  -- @switch-width:        2.8em;
+  -- @switch-height:       1.4em;
+  -- @switch-toggle-scale: 0.7;
+  -- @switch-roundness:    1.0;
+  --
+  -- @switch-toggle-size:    @switch-height * @switch-toggle-scale;
+  -- @switch-toggle-margin:  (@switch-height - @switch-toggle-size) / 2;
+  -- @switch-toggle-padding: @switch-width + @basic-spacing;
+  let switchWidth  = 34px
+      switchHeight = 16 px
+  #settingsView . #checkbox $ do
+    let togglePadding = switchWidth + marginOf #base
+    paddingLeft =: togglePadding
+    #inputCheckbox $ do
+      "-webkit-appearance" =: none
+      display              =: inlineBlock
+      fontSize             =: inherit
+  --     margin: 0em 0 0 -@switch-toggle-padding;
+  --     width: @switch-width;
+  --     height: @switch-height;
+  --     cursor: pointer;
+  --     border-radius: @switch-roundness * @switch-height / 2;
+  --     background-color: @switch-off-color;
+  --     transition: background-color 0.2s cubic-bezier(0.5, 0.15, 0.2, 1);
+  --     &:active, &:checked {
+  --       background-color: @switch-on-color;
+  --     }
+  --     &:before {
+  --       content: "";
+  --       box-sizing: border-box;
+  --       display: inline-block;
+  --       left: @switch-toggle-margin + 0.05em; // FIXME: Why we need some dirty fix like this?
+  --       top: @switch-toggle-margin !important;
+  --       margin: 0;
+  --       width:  @switch-toggle-size;
+  --       height: @switch-toggle-size;
+  --       border-radius: inherit;
+  --       background-clip: content-box;
+  --       background-color: @base-background-color;
+  --       transition: transform 0.2s cubic-bezier(0.5, 0.15, 0.2, 1);
+  --     }
+  --     &:checked:before {
+  --       transform: translateX(@switch-width - @switch-toggle-size - 2 * @switch-toggle-margin);
+  --     }
+  --     &:before {
+  --       opacity: 1;
+  --       transform: none;
+  --     }
+  --     &:after {
+  --       content: none;
+  --     }
+  --   }
+  -- }
+
+
+
 -- modifyMVar :: MVar a -> (a -> IO (a, b)) -> IO b
+
+root2 :: MonadThunk m => StyleT m ()
+root2 = do
+  let a = 12 * 7
+  background =: a + a
+
 
 main :: IO ()
 main = do
@@ -433,6 +537,7 @@ main = do
 
   -- M2.test
   -- pprint style
+
   fdecls <- flip evalStateT (mempty :: ThunkMap) $ do
     r <- joinStyleT root
     pprint r
@@ -453,3 +558,18 @@ main = do
   let css = Doc.renderLineBlock $ Doc.render $ render @Pretty @Less fdecls
   putStrLn $ convert css
   writeFile "/home/wdanilo/github/luna-dark-ui/styles/test.css" $ convert css
+
+
+  fdecls <- flip evalStateT (mempty :: ThunkMap) $ do
+    r <- joinStyleT root2
+    pprint r
+
+    -- print =<< getSortedThunks
+    pprint =<< get @ThunkMap
+    -- evalThunkPassManager $ do
+    --   registerThunkPass funcEvaluator
+    --   evalThunks
+    -- pprint =<< get @ThunkMap
+    mapM fixDecl (toList r)
+
+  return ()
