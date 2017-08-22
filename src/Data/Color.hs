@@ -8,6 +8,7 @@ import Unsafe.Coerce
 
 import Type.List
 import Type.Error
+import Data.Hashable
 
 
 -----------------------------------
@@ -16,20 +17,20 @@ import Type.Error
 
 -- === Definition === --
 
-data Record (conses :: [*]) = Record !Int !Any
+data Record (conses :: [*]) = Record !Int !Int !Any
 instance Show (Record s) where show _ = "Record"
 
 
 -- === Conversion Cons -> Record === --
 
-instance (midx ~ Index a s, ConsToRecord midx)
+instance (midx ~ Index a s, ConsToRecord midx, Hashable a)
       => Convertible a (Record s) where convert = consToRecord @midx
 
 class ConsToRecord (midx :: Maybe Nat) where
-  consToRecord :: forall a s. a -> Record s
+  consToRecord :: forall a s. Hashable a => a -> Record s
 
 instance KnownNat idx => ConsToRecord ('Just idx) where
-  consToRecord a = Record (fromIntegral $ fromType @idx) (unsafeCoerce a)
+  consToRecord a = Record (hash a) (fromIntegral $ fromType @idx) (unsafeCoerce a)
 
 
 -- === Conversion Record -> Cons === --
@@ -42,11 +43,17 @@ class RecordToCons (cidx :: Nat) s a where
 
 instance (Convertible' s a, RecordToCons nidx ss a, KnownNat idx, nidx ~ (idx + 1))
       => RecordToCons idx (s ': ss) a where
-  recordToCons (Record idx a) = if fromIntegral (fromType @idx) == idx
+  recordToCons (Record i idx a) = if fromIntegral (fromType @idx) == idx
     then convert' (unsafeCoerce a :: s)
-    else recordToCons @nidx @ss (Record idx a)
+    else recordToCons @nidx @ss (Record i idx a)
 
 instance RecordToCons idx '[] a where recordToCons _ = impossible
+
+
+-- === Instances === --
+
+instance Hashable (Record a) where
+  hashWithSalt _ (Record i _ _) = i
 
 
 
@@ -63,20 +70,24 @@ makeLenses ''Color
 
 -- === Instances === --
 
-deriving instance Show (Unwrapped (Color a)) => Show (Color a)
+deriving instance Show     (Unwrapped (Color a)) => Show     (Color a)
+deriving instance Hashable (Unwrapped (Color a)) => Hashable (Color a)
 
 
 -- === Basic color spaces === --
 
 data RGB
-data ColorRGB = ColorRGB { __r :: !Double, __g :: !Double, __b :: !Double, __a :: !Double } deriving (Show)
+data ColorRGB = ColorRGB { __r :: !Double, __g :: !Double, __b :: !Double, __a :: !Double } deriving (Generic, Show)
 type instance ColorDefinition RGB = ColorRGB
 makeLenses ''ColorRGB
 
 data HSL
-data ColorHSL = ColorHSL { __h :: !Double, __s :: !Double, __l :: !Double, __a :: !Double } deriving (Show)
+data ColorHSL = ColorHSL { __h :: !Double, __s :: !Double, __l :: !Double, __a :: !Double } deriving (Generic, Show)
 type instance ColorDefinition HSL = ColorHSL
 makeLenses ''ColorHSL
+
+instance Hashable ColorRGB
+instance Hashable ColorHSL
 
 rgb :: Convertible' (Color RGB) color => Double -> Double -> Double -> color
 rgb r g b = rgba r g b 1

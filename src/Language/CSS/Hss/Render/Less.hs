@@ -6,10 +6,10 @@ import Prologue as P hiding (nested)
 import Language.CSS.Hss.Class
 
 
-import           Data.Set        (Set)
-import qualified Data.Set        as Set
-import           Data.Map.Strict (Map)
-import qualified Data.Map.Strict as Map
+import           "containers" Data.Set        (Set)
+import qualified "containers" Data.Set        as Set
+import           "containers" Data.Map.Strict (Map)
+import qualified "containers" Data.Map.Strict as Map
 import           Data.Ratio      (numerator, denominator)
 import           Data.Color
 import qualified Data.Char       as Char
@@ -57,10 +57,10 @@ instance Convertible ValueDecl LessDecl where
     a                          -> error $ "TODO: " <> show a
 
 instance Convertible (Fix ValueScheme) LessVal where
-  convert (Fix (ValueScheme flags v)) = LessVal (Set.member "important" flags) $ convert v
+  convert (Fix (ValueScheme flags v _)) = LessVal (Set.member "important" flags) $ convert v
 
 instance Convertible (Fix ValueScheme) LessRawVal where
-  convert (Fix (ValueScheme _ v)) = convert v
+  convert (Fix (ValueScheme _ v _)) = convert v
 
 instance Convertible (RawValueScheme (Fix ValueScheme)) LessRawVal where
   convert = \case

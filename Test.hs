@@ -4,6 +4,52 @@
 {-# LANGUAGE OverloadedLists   #-}
 {-# LANGUAGE Strict   #-}
 
+{-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE ApplicativeDo #-}
+{-# LANGUAGE Arrows #-}
+{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE BinaryLiterals #-}
+{-# LANGUAGE ConstraintKinds #-}
+{-# LANGUAGE DataKinds #-}
+{-# LANGUAGE DefaultSignatures #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE DeriveFoldable #-}
+{-# LANGUAGE DeriveFunctor #-}
+{-# LANGUAGE DeriveGeneric #-}
+{-# LANGUAGE DeriveTraversable #-}
+{-# LANGUAGE DoAndIfThenElse #-}
+{-# LANGUAGE DuplicateRecordFields #-}
+{-# LANGUAGE EmptyDataDecls #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FunctionalDependencies #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE InstanceSigs #-}
+{-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE MonadComprehensions #-}
+{-# LANGUAGE MultiWayIf #-}
+{-# LANGUAGE NamedWildCards #-}
+{-# LANGUAGE NegativeLiterals #-}
+{-# LANGUAGE NoImplicitPrelude #-}
+{-# LANGUAGE NumDecimals #-}
+{-# LANGUAGE OverloadedLabels #-}
+{-# LANGUAGE PackageImports #-}
+{-# LANGUAGE QuasiQuotes #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RecursiveDo #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE TypeApplications #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeFamilyDependencies #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE ViewPatterns #-}
+{-# LANGUAGE LiberalTypeSynonyms #-}
+{-# LANGUAGE RelaxedPolyRec #-}
+
+
 module Main where
 
 import Control.Monad.State.Layered
@@ -26,6 +72,7 @@ import           "containers" Data.IntMap.Strict (IntMap)
 import Data.Color
 -- import Data.Layout hiding (render)
 import qualified Data.Layout as Doc
+import Data.Hashable (hash)
 
 
 data Font = Font { _size :: Expr }
@@ -429,7 +476,7 @@ root = do
   -- === Links === --
 
   #settingsView . ".link, .link:hover" $ do
-		color =: accentColorSubtle
+    color =: accentColorSubtle
 
 
   -- === Mini editor === --
@@ -522,21 +569,23 @@ root = do
 
 -- modifyMVar :: MVar a -> (a -> IO (a, b)) -> IO b
 
-aa :: Expr
-aa = 13 * 8
-
-a2 :: Expr
-a2 = aa + aa
-root2 :: MonadThunk m => StyleT m ()
-root2 = do
-  -- let aa :: Expr
-  --     !aa = 12 * 7
-  background =: a2 / a2
 
 
 
 
+characters :: [Char]
+characters = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
+basex :: Int
+basex = length characters
+
+encode :: Int -> [Char]
+encode n =
+  reverse [characters !! (x `mod` basex) | x <- takeWhile (> 0) (iterate (\x -> x `P.div` basex) n)]
+
+-- decode :: [Char] -> Int
+-- decode code =
+--   foldl (\r c -> (basex * r) + fromJust (elemIndex c characters)) 0 code
 
 main :: IO ()
 main = do
@@ -554,17 +603,17 @@ main = do
   --
   -- fdecls <- flip evalStateT (mempty :: ThunkMap) $ do
   --   r <- joinStyleT root
-  --   pprint r
+  --   -- pprint r
   --
-  --   print =<< getSortedThunks
-  --   pprint =<< get @ThunkMap
+  --   -- print =<< getSortedThunks
+  --   -- pprint =<< get @ThunkMap
   --   evalThunkPassManager $ do
   --     registerThunkPass funcEvaluator
   --     evalThunks
-  --   pprint =<< get @ThunkMap
+  --   -- pprint =<< get @ThunkMap
   --   mapM fixDecl (toList r)
   --
-  -- pprint fdecls
+  -- -- pprint fdecls
   -- -- print =<< readMVar thunkMapRef
   --
   -- -- pprint r
@@ -575,14 +624,13 @@ main = do
 
 
 
-
   fdecls <- flip evalStateT (mempty :: ThunkMap) $ do
     print "-- 1"
     r <- joinStyleT root2
     pprint r
 
     -- print =<< getSortedThunks
-    print "-- 2"
+    print "-- 3"
     pprint =<< get @ThunkMap
     -- evalThunkPassManager $ do
     --   registerThunkPass funcEvaluator
@@ -590,4 +638,12 @@ main = do
     -- pprint =<< get @ThunkMap
     mapM fixDecl (toList r)
 
+
   return ()
+
+-- v1,v2 :: Expr
+-- v1 = 12px
+v2 = 12px !important
+
+root2 :: MonadThunk m => StyleT m ()
+root2 = background =: v2

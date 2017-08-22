@@ -6,9 +6,14 @@ module Language.CSS.Hss.Value.Number where
 import Prologue
 import Language.CSS.Hss.Value.Unit
 
-import qualified Data.Map.Strict as Map
-import           Data.Map.Strict    (Map)
+import qualified "containers" Data.Map.Strict as Map
+import           "containers" Data.Map.Strict    (Map)
+import           Data.Hashable
 
+
+-- FIXME: refactor!
+instance (Hashable k, Hashable v) => Hashable (Map k v) where
+  hashWithSalt s = hashWithSalt s . Map.assocs
 
 --------------------
 -- === Number === --
@@ -19,11 +24,13 @@ import           Data.Map.Strict    (Map)
 data Number = Number
   { _numUnits :: Map Unit Int
   , _rawNum   :: Rational
-  } deriving (Eq)
+  } deriving (Eq, Generic)
 makeLenses ''Number
 
 
 -- === Instances === --
+
+instance Hashable Number
 
 instance Num (Unit -> Number) where
   fromInteger i = flip Number (fromInteger i) . flip Map.singleton 1

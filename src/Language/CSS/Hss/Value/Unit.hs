@@ -4,7 +4,8 @@
 module Language.CSS.Hss.Value.Unit where
 
 import Prologue
-import Data.Map.Strict (Map)
+import "containers" Data.Map.Strict (Map)
+import Data.Hashable
 
 
 -------------------
@@ -13,7 +14,7 @@ import Data.Map.Strict (Map)
 
 -- === Definition === --
 
-newtype Unit = Unit Text deriving (Ord, Eq)
+newtype Unit = Unit Text deriving (Ord, Eq, Hashable)
 makeLenses ''Unit
 
 

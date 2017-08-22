@@ -3,23 +3,29 @@ version:    "0.1"
 author:     Luna Team <contact@luna-lang.org>
 maintainer: Luna Team <contact@luna-lang.org>
 
+library:
+  source-dirs:
+    - src
+
 executables:
   hss:
     main: Main.hs
     source-dirs: src
-    dependencies:
-      - base
-      - lens
-      - prologue
-      - dependent-state
-      - text
-      - free
-      - containers
-      - recursion-schemes
-      - bifunctors
-      - typelevel
-      - deriving-compat
-      - layouting
+
+dependencies:
+  - base
+  - lens
+  - prologue
+  - dependent-state
+  - text
+  - free
+  - containers
+  - recursion-schemes
+  - bifunctors
+  - typelevel
+  - deriving-compat
+  - layouting
+  - hashable
 
 default-extensions:
     - AllowAmbiguousTypes

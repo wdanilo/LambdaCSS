@@ -1,7 +1,8 @@
-{-# LANGUAGE NoMonomorphismRestriction #-}
+{-# LANGUAGE MonomorphismRestriction #-}
 {-# LANGUAGE PatternSynonyms           #-}
 {-# LANGUAGE OverloadedStrings         #-}
 {-# LANGUAGE UndecidableInstances      #-}
+{-# LANGUAGE Strict      #-}
 
 module Language.CSS.Hss.Class where
 
@@ -10,18 +11,20 @@ import Prologue hiding (assign, properFraction, truncate, round, ceiling, floor)
 
 import           Control.Monad.State.Layered
 import           Control.Monad.Free.List
-import           Data.Map.Strict             (Map)
-import qualified Data.Map.Strict             as Map
-import           Data.IntMap.Strict          (IntMap)
-import qualified Data.IntMap.Strict          as IntMap
-import           Data.Set                    (Set)
-import qualified Data.Set                    as Set
+import           "containers" Data.Map.Strict             (Map)
+import qualified "containers" Data.Map.Strict             as Map
+import           "containers" Data.IntMap.Strict          (IntMap)
+import qualified "containers" Data.IntMap.Strict          as IntMap
+import           "containers" Data.Set                    (Set)
+import qualified "containers" Data.Set                    as Set
 import qualified Control.Lens                as Lens
 import           Data.Color
 import           Data.Layout                 (Doc)
 import qualified Data.Char                   as Char
 import qualified GHC.Exts                    as Lits
+import           Data.Hashable
 import Prelude (round)
+import qualified Data.Encoding.Base          as Base
 
 import Control.Monad.Trans.Free hiding (wrap)
 
@@ -41,6 +44,7 @@ type family Eqs' t ts :: Constraint where
   Eqs' p (t ': ts) = (p ~ t, Eqs' p ts)
 
 
+
 -------------------
 -- === Value === --
 -------------------
@@ -50,28 +54,32 @@ type family Eqs' t ts :: Constraint where
 type Value         = ValueScheme Thunk
 type FixedValue    = ValueScheme (Fix ValueScheme)
 data ValueScheme a = ValueScheme
-  { _valFlags :: Set Text
-  , _rawVal   :: RawValueScheme a
+  { _rawVal   :: !(RawValueScheme a)
+  , _valHash  :: !Int
   } deriving (Foldable, Functor, Traversable)
 
 type RawValue      = RawValueScheme Thunk
 type FixedRawValue = RawValueScheme (Fix ValueScheme)
 data RawValueScheme a
-  = Var Text
-  | Num Number
-  | Txt Text
-  | Col CSSColor
-  | App Text [a]
-  | Lst [a]
-  deriving (Foldable, Functor, Show, Traversable)
+  = Var !Text
+  | Num !Number
+  | Txt !Text
+  | Col !CSSColor
+  | App !Text ![a]
+  | Lst ![a]
+  | Mod !Text !a
+  deriving (Foldable, Functor, Generic, Show, Traversable)
 
 type CSSColor = Record '[Color RGB, Color HSL]
 
 
 -- === Utils === --
 
-simpleValueScheme :: RawValueScheme a -> ValueScheme a
-simpleValueScheme = ValueScheme mempty
+valueScheme :: (Hashable a, Show a) => Set Text -> RawValueScheme a -> ValueScheme a
+valueScheme f v = ValueScheme f v $ hash (toList f,v)
+
+simpleValueScheme :: (Hashable a, Show a) => RawValueScheme a -> ValueScheme a
+simpleValueScheme = valueScheme mempty
 
 
 -- === Flags === --
@@ -90,25 +98,38 @@ important = "important"
 
 -- Conversions
 instance Convertible Number (RawValueScheme a) where convert = Num
-instance {-# OVERLAPPABLE #-} Convertible t (RawValueScheme a)
-             => Convertible t                  (ValueScheme a) where convert = convertVia @(RawValueScheme a)
-instance t~a => Convertible (RawValueScheme t) (ValueScheme a) where convert = ValueScheme mempty
+instance {-# OVERLAPPABLE #-} (Convertible t (RawValueScheme a)
+         ,Show a, Hashable a)      => Convertible t                  (ValueScheme a) where convert = convertVia @(RawValueScheme a)
+instance (Show a, Hashable a, t~a) => Convertible (RawValueScheme t) (ValueScheme a) where convert = valueScheme mempty
 
 -- Pretty
 instance Show a => Show (ValueScheme a) where
-  showsPrec d (ValueScheme f r) = showParen' d
+  showsPrec d (ValueScheme f r _) = showParen' d
     $ showString "ValueScheme "
     . showsPrec' (toList f)
     . showString " "
     . showsPrec' r
 
+-- Hash
+
+-- | If we do not implement it manually, GHCi doesnt share hash computations
+instance Hashable a => Hashable (RawValueScheme a) where
+  hash = \case
+    Var   a -> hash a
+    Num   a -> hash a
+    Txt   a -> hash a
+    Col   a -> hash a
+    App t a -> hash (t,a)
+    Lst   a -> hash a
+instance Hashable (ValueScheme a) where
+  hashWithSalt _ (ValueScheme _ _ i) = i
 
 
 -------------------
 -- === Thunk === --
 -------------------
 
-newtype Thunk        = Thunk Int deriving (Num, Show)
+newtype Thunk        = Thunk Int deriving (Hashable, Num, Show)
 type    ThunkMap     = IntMap Value
 type    MonadThunk a = MonadState ThunkMap a
 makeLenses ''Thunk
@@ -117,20 +138,21 @@ makeLenses ''Thunk
 -- === Construction === --
 
 newThunk :: MonadThunk m => Value -> m Thunk
-newThunk v = modify @ThunkMap go where
-  go m = (wrap idx, IntMap.insert idx v m) where
-    idx = IntMap.size m
+newThunk v = trace ("making thunk for " <> show v <> ": " <> show h) (wrap h <$ modify_ @ThunkMap go) where
+  h    = hash v
+  go m = (IntMap.insertWith (flip const) h v m)
 
 readThunk    :: MonadThunk m => Thunk -> m Value
 readThunkRaw :: MonadThunk m => Thunk -> m RawValue
 readThunk    t = (^?! ix (unwrap t)) <$> get @ThunkMap
-readThunkRaw t = (\(ValueScheme _ r) -> r) <$> readThunk t
+readThunkRaw t = (\(ValueScheme _ r _) -> r) <$> readThunk t
 
 writeThunk :: MonadThunk m => Thunk -> Value -> m ()
 writeThunk t = modifyThunk t . const
 
 modifyThunk :: MonadThunk m => Thunk -> (Value -> Value) -> m ()
 modifyThunk t f = modify_ @ThunkMap $ ix (unwrap t) %~ f
+
 
 
 -- === Catamorphisms === --
@@ -149,6 +171,11 @@ instance Convertible Thunk Int where convert = coerce
 makeLenses  ''ValueScheme
 deriveShow1 ''ValueScheme
 deriveShow1 ''RawValueScheme
+
+-- instance Show Thunk where
+--   showsPrec d (Thunk i) = showParen' d
+--     $ showString ("Thunk " <> Base.encode62 i)
+
 
 
 ------------------------------
@@ -257,6 +284,7 @@ evalApp n vs = return $ case (n, view rawVal <$> vs) of
   ("+"     , [Num (Number u a), Num (Number u' a')]) -> justIf (u == u') $ convert $ Number u $ a + a'
   ("round" , [Num (Number u a)])                     -> Just $ convert $ Number u (convert @Int $ P.round a)
   _ -> Nothing
+
 
 
 -- === Helpers === --
@@ -567,16 +595,14 @@ instance SemiRealFrac Expr where
 -- | Syntax `var =: 12px`
 instance Num (Unit -> Expr) where
   fromInteger = mkNumExpr .: fromInteger
--- instance Num (Unit -> f -> g) where
---   fromInteger i u
 
 -- | Syntax `var =: foo !important`
 -- FIXME: Shouldnt we move Flags to AST trans node?
 instance HasFlag Expr where
   addFlag f (Expr expr) = Expr $ do
     t <- expr
-    modifyThunk t (valFlags %~ Set.insert f)
-    return t
+    v <- readThunk t
+    newThunk $ v & valFlags %~ Set.insert f
 
 -- | Syntax `var =: rgb 1 0 0`
 instance Convertible (Color c) CSSColor
