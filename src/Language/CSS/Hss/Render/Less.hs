@@ -28,17 +28,13 @@ showF = fromString . printf "%f"
 -- === Less AST === --
 ----------------------
 
-data LessVal = LessVal
-  { _isImportant :: Bool
-  , _lessRawVal  :: LessRawVal
-  } deriving (Show)
-
-data LessRawVal
+data LessVal
   = LessVar Text
   | LessNum Text
   | LessTxt Text
-  | LessLst [LessRawVal]
-  | LessApp Text [LessRawVal]
+  | LessLst [LessVal]
+  | LessApp Text [LessVal]
+  | LessMod Text LessVal
   deriving (Show)
 
 data LessDecl
@@ -57,12 +53,9 @@ instance Convertible ValueDecl LessDecl where
     a                          -> error $ "TODO: " <> show a
 
 instance Convertible (Fix ValueScheme) LessVal where
-  convert (Fix (ValueScheme flags v _)) = LessVal (Set.member "important" flags) $ convert v
+  convert (Fix (ValueScheme v _)) = convert v
 
-instance Convertible (Fix ValueScheme) LessRawVal where
-  convert (Fix (ValueScheme _ v _)) = convert v
-
-instance Convertible (RawValueScheme (Fix ValueScheme)) LessRawVal where
+instance Convertible (RawValueScheme (Fix ValueScheme)) LessVal where
   convert = \case
     Var   a -> LessVar a
     Txt   a -> LessTxt a
@@ -79,6 +72,7 @@ instance Convertible (RawValueScheme (Fix ValueScheme)) LessRawVal where
            <> "," <> showF (col ^. a)
       rnd c = P.round (c * 255) :: Int
       val   = "rgba(" <> body <> ")"
+    Mod t a -> LessMod t $ convert a
 
 instance Convertible Selector Text where
   convert = \case
@@ -101,15 +95,12 @@ instance PrettyPrinter LessDecl where
     LessSectionDecl s d -> convert s <+> "{" </> (indented . block $ pretty d) </> "}"
 
 instance PrettyPrinter LessVal where
-  pretty (LessVal imp v) = go $ pretty v where
-    go = if imp then (<> " !important") else id
-
-instance PrettyPrinter LessRawVal where
   pretty = \case
     LessVar   a -> "@" <> convert a
     LessNum   a -> convert a
     LessTxt   a -> convert a
     LessLst   a -> intercalate space $ parensed . pretty <$> a
+    LessMod t a -> pretty a <+> "!" <> convert t
     LessApp t a -> if Text.all Char.isAlphaNum t
       then convert t <> parensed (intercalate ", " (pretty <$> a))
       else pretty (unsafeHead a) <+> convert t <+> intercalate space (pretty <$> unsafeTail a)

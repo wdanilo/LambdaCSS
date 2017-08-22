@@ -600,44 +600,44 @@ main = do
   -- pprint style
 
 
-  --
+
+  fdecls <- flip evalStateT (mempty :: ThunkMap) $ do
+    r <- joinStyleT root
+    -- pprint r
+
+    -- print =<< getSortedThunks
+    -- pprint =<< get @ThunkMap
+    evalThunkPassManager $ do
+      registerThunkPass funcEvaluator
+      evalThunks
+    pprint =<< get @ThunkMap
+    mapM fixDecl (toList r)
+
+  -- pprint fdecls
+  -- print =<< readMVar thunkMapRef
+
+  -- pprint r
+  return ()
+  let css = Doc.renderLineBlock $ Doc.render $ render @Pretty @Less fdecls
+  -- putStrLn $ convert css
+  writeFile "/home/wdanilo/github/luna-dark-ui/styles/test.css" $ convert css
+
+
+
   -- fdecls <- flip evalStateT (mempty :: ThunkMap) $ do
-  --   r <- joinStyleT root
-  --   -- pprint r
+  --   print "-- 1"
+  --   r <- joinStyleT root2
+  --   pprint r
   --
   --   -- print =<< getSortedThunks
-  --   -- pprint =<< get @ThunkMap
-  --   evalThunkPassManager $ do
-  --     registerThunkPass funcEvaluator
-  --     evalThunks
+  --   print "-- 3"
+  --   pprint =<< get @ThunkMap
+  --   -- evalThunkPassManager $ do
+  --   --   registerThunkPass funcEvaluator
+  --   --   evalThunks
   --   -- pprint =<< get @ThunkMap
   --   mapM fixDecl (toList r)
   --
-  -- -- pprint fdecls
-  -- -- print =<< readMVar thunkMapRef
-  --
-  -- -- pprint r
-  -- return ()
-  -- let css = Doc.renderLineBlock $ Doc.render $ render @Pretty @Less fdecls
-  -- putStrLn $ convert css
-  -- writeFile "/home/wdanilo/github/luna-dark-ui/styles/test.css" $ convert css
-
-
-
-  fdecls <- flip evalStateT (mempty :: ThunkMap) $ do
-    print "-- 1"
-    r <- joinStyleT root2
-    pprint r
-
-    -- print =<< getSortedThunks
-    print "-- 3"
-    pprint =<< get @ThunkMap
-    -- evalThunkPassManager $ do
-    --   registerThunkPass funcEvaluator
-    --   evalThunks
-    -- pprint =<< get @ThunkMap
-    mapM fixDecl (toList r)
-
 
   return ()
 

@@ -45,6 +45,13 @@ type family Eqs' t ts :: Constraint where
 
 
 
+newtype Hash = Hash Int
+instance Show Hash where show (Hash i) = show $ Base.encode62 i
+
+instance Convertible Hash Int where convert = coerce
+instance Convertible Int Hash where convert = coerce
+
+
 -------------------
 -- === Value === --
 -------------------
@@ -55,7 +62,7 @@ type Value         = ValueScheme Thunk
 type FixedValue    = ValueScheme (Fix ValueScheme)
 data ValueScheme a = ValueScheme
   { _rawVal   :: !(RawValueScheme a)
-  , _valHash  :: !Int
+  , _valHash  :: !Hash
   } deriving (Foldable, Functor, Traversable)
 
 type RawValue      = RawValueScheme Thunk
@@ -75,23 +82,8 @@ type CSSColor = Record '[Color RGB, Color HSL]
 
 -- === Utils === --
 
-valueScheme :: (Hashable a, Show a) => Set Text -> RawValueScheme a -> ValueScheme a
-valueScheme f v = ValueScheme f v $ hash (toList f,v)
-
-simpleValueScheme :: (Hashable a, Show a) => RawValueScheme a -> ValueScheme a
-simpleValueScheme = valueScheme mempty
-
-
--- === Flags === --
-
-class HasFlag a where
-  addFlag :: Text -> a -> a
-
-(!) :: HasFlag a => a -> Text -> a
-(!) = flip addFlag
-
-important :: Text
-important = "important"
+valueScheme :: Hashable a => RawValueScheme a -> ValueScheme a
+valueScheme v = ValueScheme v $ Hash (hash v)
 
 
 -- === Instances === --
@@ -100,17 +92,16 @@ important = "important"
 instance Convertible Number (RawValueScheme a) where convert = Num
 instance {-# OVERLAPPABLE #-} (Convertible t (RawValueScheme a)
          ,Show a, Hashable a)      => Convertible t                  (ValueScheme a) where convert = convertVia @(RawValueScheme a)
-instance (Show a, Hashable a, t~a) => Convertible (RawValueScheme t) (ValueScheme a) where convert = valueScheme mempty
+instance (Show a, Hashable a, t~a) => Convertible (RawValueScheme t) (ValueScheme a) where convert = valueScheme
 
 -- Pretty
 instance Show a => Show (ValueScheme a) where
-  showsPrec d (ValueScheme f r _) = showParen' d
+  showsPrec d (ValueScheme f h) = showParen' d
     $ showString "ValueScheme "
-    . showsPrec' (toList f)
     . showString " "
-    . showsPrec' r
-
--- Hash
+    . showsPrec' f
+    . showString " "
+    . showsPrec' h
 
 -- | If we do not implement it manually, GHCi doesnt share hash computations
 instance Hashable a => Hashable (RawValueScheme a) where
@@ -121,37 +112,39 @@ instance Hashable a => Hashable (RawValueScheme a) where
     Col   a -> hash a
     App t a -> hash (t,a)
     Lst   a -> hash a
+    Mod t a -> hash (t,a)
 instance Hashable (ValueScheme a) where
-  hashWithSalt _ (ValueScheme _ _ i) = i
+  hashWithSalt _ (ValueScheme _ i) = convert i
 
 
 -------------------
 -- === Thunk === --
 -------------------
 
-newtype Thunk        = Thunk Int deriving (Hashable, Num, Show)
-type    ThunkMap     = IntMap Value
+newtype Thunk        = Thunk Int               deriving (Hashable, Num)
+newtype ThunkMap     = ThunkMap (IntMap Value) deriving (P.Monoid)
 type    MonadThunk a = MonadState ThunkMap a
 makeLenses ''Thunk
+makeLenses ''ThunkMap
 
 
 -- === Construction === --
 
 newThunk :: MonadThunk m => Value -> m Thunk
-newThunk v = trace ("making thunk for " <> show v <> ": " <> show h) (wrap h <$ modify_ @ThunkMap go) where
+newThunk v = wrap h <$ modify_ @ThunkMap go where
   h    = hash v
-  go m = (IntMap.insertWith (flip const) h v m)
+  go m = m & wrapped %~ IntMap.insertWith (flip const) h v
 
 readThunk    :: MonadThunk m => Thunk -> m Value
 readThunkRaw :: MonadThunk m => Thunk -> m RawValue
-readThunk    t = (^?! ix (unwrap t)) <$> get @ThunkMap
-readThunkRaw t = (\(ValueScheme _ r _) -> r) <$> readThunk t
+readThunk    t = (^?! ix t) <$> get @ThunkMap
+readThunkRaw t = (\(ValueScheme r _) -> r) <$> readThunk t
 
 writeThunk :: MonadThunk m => Thunk -> Value -> m ()
 writeThunk t = modifyThunk t . const
 
 modifyThunk :: MonadThunk m => Thunk -> (Value -> Value) -> m ()
-modifyThunk t f = modify_ @ThunkMap $ ix (unwrap t) %~ f
+modifyThunk t f = modify_ @ThunkMap $ ix t %~ f
 
 
 
@@ -172,10 +165,16 @@ makeLenses  ''ValueScheme
 deriveShow1 ''ValueScheme
 deriveShow1 ''RawValueScheme
 
--- instance Show Thunk where
---   showsPrec d (Thunk i) = showParen' d
---     $ showString ("Thunk " <> Base.encode62 i)
+type instance IxValue ThunkMap = Value
+type instance Index   ThunkMap = Thunk
+instance Ixed ThunkMap where ix t = wrapped . ix (unwrap t)
 
+instance Show Thunk where
+  showsPrec d (Thunk i) = showParen' d
+    $ showString ("Thunk \"" <> Base.encode62 i <> "\"")
+
+instance Show ThunkMap where
+  show = show . fmap (_1 %~ Thunk) . IntMap.assocs . unwrap
 
 
 ------------------------------
@@ -226,7 +225,7 @@ registerThunkPass f = modify_ @ThunkPassManager (wrapped %~ (<> [f]))
 
 getSortedThunks :: MonadThunk m => m [Thunk]
 getSortedThunks = do
-  thunks <- fmap convert . IntMap.keys <$> get @ThunkMap
+  thunks <- fmap convert . IntMap.keys . unwrap <$> get @ThunkMap
   reverse . fst <$> foldM (uncurry visit) (mempty, mempty) thunks
   where
     visit :: MonadThunk m => [Thunk] -> Set Int -> Thunk -> m ([Thunk], Set Int)
@@ -261,9 +260,7 @@ funcEvaluator :: MonadThunk m => Value -> m Value
 funcEvaluator val = case val ^. rawVal of
   App n ts -> do
     vals <- mapM readThunk ts
-    evalApp n vals >>= return . \case
-      Just val' -> val' & valFlags .~ (val ^. valFlags)
-      Nothing   -> val
+    fromJust val <$> evalApp n vals
   _ -> return val
 
 
@@ -290,7 +287,7 @@ evalApp n vs = return $ case (n, view rawVal <$> vs) of
 -- === Helpers === --
 
 mkThunkRaw :: MonadThunk m => RawValue -> m Thunk
-mkThunkRaw = newThunk . simpleValueScheme
+mkThunkRaw = newThunk . valueScheme
 
 mkVarThunk   :: MonadThunk m => Text     -> m Thunk
 mkNumThunk   :: MonadThunk m => Number   -> m Thunk
@@ -298,17 +295,21 @@ mkTxtThunk   :: MonadThunk m => Text     -> m Thunk
 mkColorThunk :: MonadThunk m => CSSColor -> m Thunk
 mkAppThunk   :: MonadThunk m => Text -> [Thunk] -> m Thunk
 mkLstThunk   :: MonadThunk m =>         [Thunk] -> m Thunk
+mkModThunk   :: MonadThunk m => Text -> Thunk -> m Thunk
 mkVarThunk   = mkThunkRaw .  Var
 mkNumThunk   = mkThunkRaw .  Num
 mkTxtThunk   = mkThunkRaw .  Txt
 mkAppThunk   = mkThunkRaw .: App
 mkLstThunk   = mkThunkRaw .  Lst
+mkModThunk   = mkThunkRaw .: Mod
 mkColorThunk = mkThunkRaw .  Col
 
 mkAppThunkM :: MonadThunk m => Text -> [m Thunk] -> m Thunk
 mkLstThunkM :: MonadThunk m =>         [m Thunk] -> m Thunk
+mkModThunkM :: MonadThunk m => Text -> m Thunk -> m Thunk
 mkAppThunkM n = mkAppThunk n <=< sequence
 mkLstThunkM   = mkLstThunk   <=< sequence
+mkModThunkM t = (mkModThunk t =<<)
 
 mkAppThunkM1 :: MonadThunk m => Text -> m Thunk -> m Thunk
 mkAppThunkM2 :: MonadThunk m => Text -> m Thunk -> m Thunk -> m Thunk
@@ -501,12 +502,14 @@ mkTxtExpr   :: Text     -> Expr
 mkColorExpr :: CSSColor -> Expr
 mkAppExpr   :: Text -> [Expr] -> Expr
 mkLstExpr   ::         [Expr] -> Expr
+mkModExpr   :: Text -> Expr -> Expr
 mkVarExpr   a    = Expr $ mkVarThunk   a
 mkNumExpr   a    = Expr $ mkNumThunk   a
 mkTxtExpr   a    = Expr $ mkTxtThunk   a
 mkColorExpr a    = Expr $ mkColorThunk a
 mkAppExpr   t as = Expr $ mkAppThunkM t (runExpr <$> as)
 mkLstExpr     as = Expr $ mkLstThunkM   (runExpr <$> as)
+mkModExpr   t a  = Expr $ mkModThunkM t (runExpr a)
 
 mkAppExpr1  :: Text -> Expr -> Expr
 mkAppExpr2  :: Text -> Expr -> Expr -> Expr
@@ -596,14 +599,6 @@ instance SemiRealFrac Expr where
 instance Num (Unit -> Expr) where
   fromInteger = mkNumExpr .: fromInteger
 
--- | Syntax `var =: foo !important`
--- FIXME: Shouldnt we move Flags to AST trans node?
-instance HasFlag Expr where
-  addFlag f (Expr expr) = Expr $ do
-    t <- expr
-    v <- readThunk t
-    newThunk $ v & valFlags %~ Set.insert f
-
 -- | Syntax `var =: rgb 1 0 0`
 instance Convertible (Color c) CSSColor
       => Convertible (Color c) Expr where
@@ -619,6 +614,16 @@ instance (t~Expr, Eqs '[t,t2])          => IsString (t -> t2 -> Expr)           
 instance (t~Expr, Eqs '[t,t2,t3])       => IsString (t -> t2 -> t3 -> Expr)             where fromString = mkAppExpr3 . convert
 instance (t~Expr, Eqs '[t,t2,t3,t4])    => IsString (t -> t2 -> t3 -> t4 -> Expr)       where fromString = mkAppExpr4 . convert
 instance (t~Expr, Eqs '[t,t2,t3,t4,t5]) => IsString (t -> t2 -> t3 -> t4 -> t5 -> Expr) where fromString = mkAppExpr5 . convert
+
+
+-- === Flags === --
+
+(!) :: Expr -> Text -> Expr
+(!) = flip mkModExpr
+
+important :: Text
+important = "important"
+
 
 
 -- === Instances === --
