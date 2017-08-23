@@ -22,8 +22,11 @@ import Data.Functor.Foldable
 import Language.CSS.Hss.Value.Number
 
 
-showF :: IsString s => Double -> s
-showF = fromString . printf "%f"
+showF :: IsString s => Rational -> s
+showF = fromString . printf "%f" . convertTo @Double
+
+smartShow :: IsString s => Rational -> s
+smartShow i = if (denominator i == 1) then fromString (show $ numerator i) else showF i
 
 
 indented t = hspacing 2 <> t
@@ -66,16 +69,16 @@ instance Convertible (RawValueScheme (Fix ValueScheme)) LessVal where
     App t a -> LessApp t $ convert <$> a
     Lst   a -> LessLst   $ convert <$> a
     Num (Number us a) -> LessNum . convert $ case Map.assocs us of
-      [] -> showF (fromRational a)
+      [] -> smartShow a
       [(u,i)] -> if | i == 1 && u == "px" -> rawNum <> convert u
-                    | i == 1              -> showF (fromRational a) <> convert u
+                    | i == 1              -> smartShow a <> convert u
                     | otherwise           -> error $ "Cannot generate non singleton unit value " <> show u <> "^" <> show i
       ls -> error "Cannot generate non singleton unit value " <> show ls
       where rawNum = if denominator a == 1 then show (numerator a) else show (P.round a :: Int)
     Col c   -> LessTxt $ convert val  where
       col   = convert (c :: CSSColor) :: Color RGB
       body  = intercalate "," (show <$> [rnd $ col ^. r, rnd $ col ^. g, rnd $ col ^. b])
-           <> "," <> showF (col ^. a)
+           <> "," <> smartShow (convert $ col ^. a)
       rnd c = P.round (c * 255) :: Int
       val   = "rgba(" <> body <> ")"
     Mod t a -> LessMod t $ convert a
