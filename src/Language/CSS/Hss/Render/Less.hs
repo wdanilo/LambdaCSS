@@ -62,8 +62,10 @@ instance Convertible (RawValueScheme (Fix ValueScheme)) LessVal where
     App t a -> LessApp t $ convert <$> a
     Lst   a -> LessLst   $ convert <$> a
     Num (Number us a) -> LessNum . convert $ case Map.assocs us of
-      [] -> rawNum
-      [(u,i)] -> if i == 1 then rawNum <> convert u else error $ "Cannot generate non singleton unit value " <> show u <> "^" <> show i
+      [] -> showF (fromRational a)
+      [(u,i)] -> if | i == 1 && u == "px" -> rawNum <> convert u
+                    | i == 1              -> showF (fromRational a) <> convert u
+                    | otherwise           -> error $ "Cannot generate non singleton unit value " <> show u <> "^" <> show i
       ls -> error "Cannot generate non singleton unit value " <> show ls
       where rawNum = if denominator a == 1 then show (numerator a) else show (P.round a :: Int)
     Col c   -> LessTxt $ convert val  where
@@ -98,12 +100,12 @@ instance PrettyPrinter LessVal where
   pretty = \case
     LessVar   a -> "@" <> convert a
     LessNum   a -> convert a
-    LessTxt   a -> convert a
+    LessTxt   a -> if a == mempty then "\"\"" else convert a
     LessLst   a -> intercalate space $ parensed . pretty <$> a
     LessMod t a -> pretty a <+> "!" <> convert t
-    LessApp t a -> if Text.all Char.isAlphaNum t
+    LessApp t a -> if (Text.all (Char.isAlphaNum ||. (=='-')) t) && t /= "-"
       then convert t <> parensed (intercalate ", " (pretty <$> a))
-      else pretty (unsafeHead a) <+> convert t <+> intercalate space (pretty <$> unsafeTail a)
+      else parensed $ pretty (unsafeHead a) <+> convert t <+> intercalate space (pretty <$> unsafeTail a)
 
 
 ---------------------------

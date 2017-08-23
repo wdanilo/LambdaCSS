@@ -278,7 +278,16 @@ evalApp :: Monad m => Text -> [Value] -> m (Maybe Value)
 evalApp n vs = return $ case (n, view rawVal <$> vs) of
   ("*"     , [Num (Number u a), Num (Number u' a')]) -> Just $ convert $ simplifyUnits $ Number (Map.unionWith (+) u u') (a * a')
   ("/"     , [Num (Number u a), Num (Number u' a')]) -> Just $ convert $ Number (Map.mergeWithKey (\_ x y -> let w = x + y in justIf (not $ w == 0) w) id id u (negate <$> u')) (a / a')
-  ("+"     , [Num (Number u a), Num (Number u' a')]) -> justIf (u == u') $ convert $ Number u $ a + a'
+  ("+"     , [Num (Number u a), Num (Number u' a')]) -> fmap convert $ if
+                                                        | u  == u'  -> Just $ Number u $ a + a'
+                                                        | a  == 0   -> Just $ Number u' a'
+                                                        | a' == 0   -> Just $ Number u  a
+                                                        | otherwise -> Nothing
+  ("-"     , [Num (Number u a), Num (Number u' a')]) -> fmap convert $ if
+                                                        | u  == u'  -> Just $ Number u $ a - a'
+                                                        | a  == 0   -> Just $ Number u' (-a')
+                                                        | a' == 0   -> Just $ Number u  a
+                                                        | otherwise -> Nothing
   ("round" , [Num (Number u a)])                     -> Just $ convert $ Number u (convert @Int $ P.round a)
   _ -> Nothing
 

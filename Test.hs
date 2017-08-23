@@ -110,13 +110,20 @@ marginMap = fromList
   , (#secondaryInfo      , uiSize)
   , (#option             , uiSize * 1.5)
   , (#optionDescription  , uiSize / 2.5)
-  ]
-  where base = 20px
+  , (#inlineControl      , uiSize * 0.9)
+  ] where base = 20px
+
+roundnessMap :: Map Text Expr
+roundnessMap = fromList
+  [ (#base               , base)
+  , (#switch             , base)
+  ] where base = 1
 
 colorMap :: Map Text Expr
 colorMap = fromList
-  [ (#text  , rgba 1 1 1 0.6)
-  , (#layer , rgba 1 1 1 0.05)
+  [ (#text   , rgba 1 1 1 0.6)
+  , (#layer  , rgba 1 1 1 0.05)
+  , (#toggle , rgba 1 1 1 0.14)
   ]
 
 radiusMap :: Map Text Expr
@@ -128,6 +135,9 @@ radiusMap = fromList
 marginOf :: HasCallStack => Text -> Expr
 marginOf t = marginMap ^?! ix t
 
+roundnessOf :: HasCallStack => Text -> Expr
+roundnessOf t = roundnessMap ^?! ix t
+
 radiusOf :: HasCallStack => Text -> Expr
 radiusOf t = radiusMap ^?! ix t
 
@@ -136,8 +146,7 @@ colorOf t = colorMap ^?! ix t
 
 uiSize :: Expr
 uiSize = 12px
---
---
+
 iconOffset :: Expr
 iconOffset = 0.4
 
@@ -199,6 +208,9 @@ darken = "darken"
 lighten :: Expr -> Expr -> Expr
 lighten = "lighten"
 
+fade :: Expr -> Expr -> Expr
+fade a n = "fadein" a (n * 100)
+
 white = rgb 1 1 1
 black = rgb 0 0 0
 
@@ -252,6 +264,11 @@ accentColor        = var "accent-color"
 accentColorSubtle  = var "accent-color-subtle"
 accentBgLayerColor = var "accent-bg-layer-color"
 
+
+vcenterChildren = do
+  display        =: flex
+  flexDirection  =: column
+  justifyContent =: center
 
 -- c =: hover $ subtle $ colorOf #text
 root :: MonadThunk m => StyleT m ()
@@ -502,71 +519,65 @@ root = do
 
   -- === Checkbox === --
 
-
-  -- @basic-spacing: 0.8em;
-  --
-  -- // @switch-on-color:  hsl(65, 30%, 47%);
-  -- // @switch-on-color:  hsl(0,0%,40%);//@accent-color-subtle;
-  -- @switch-on-color:  @accent-color-subtle;
-  -- @switch-off-color: @tiny-layer-color;
-  --
-  -- @switch-width:        2.8em;
-  -- @switch-height:       1.4em;
-  -- @switch-toggle-scale: 0.7;
-  -- @switch-roundness:    1.0;
-  --
-  -- @switch-toggle-size:    @switch-height * @switch-toggle-scale;
-  -- @switch-toggle-margin:  (@switch-height - @switch-toggle-size) / 2;
-  -- @switch-toggle-padding: @switch-width + @basic-spacing;
   let switchWidth  = 34px
-      switchHeight = 16 px
+      switchHeight = 16px
+      toggleOffset = 4px
+      toggleSize   = switchHeight - toggleOffset * 2
+      toggleMargin = (switchHeight - toggleSize) / 2
   #settingsView . #checkbox $ do
-    let togglePadding = switchWidth + marginOf #base
+    let togglePadding = switchWidth + marginOf #inlineControl
     paddingLeft =: togglePadding
+    "label" $ vcenterChildren
     #inputCheckbox $ do
-      "-webkit-appearance" =: none
-      display              =: inlineBlock
-      fontSize             =: inherit
-  --     margin: 0em 0 0 -@switch-toggle-padding;
-  --     width: @switch-width;
-  --     height: @switch-height;
-  --     cursor: pointer;
-  --     border-radius: @switch-roundness * @switch-height / 2;
-  --     background-color: @switch-off-color;
-  --     transition: background-color 0.2s cubic-bezier(0.5, 0.15, 0.2, 1);
-  --     &:active, &:checked {
-  --       background-color: @switch-on-color;
-  --     }
-  --     &:before {
-  --       content: "";
-  --       box-sizing: border-box;
-  --       display: inline-block;
-  --       left: @switch-toggle-margin + 0.05em; // FIXME: Why we need some dirty fix like this?
-  --       top: @switch-toggle-margin !important;
-  --       margin: 0;
-  --       width:  @switch-toggle-size;
-  --       height: @switch-toggle-size;
-  --       border-radius: inherit;
-  --       background-clip: content-box;
-  --       background-color: @base-background-color;
-  --       transition: transform 0.2s cubic-bezier(0.5, 0.15, 0.2, 1);
-  --     }
-  --     &:checked:before {
-  --       transform: translateX(@switch-width - @switch-toggle-size - 2 * @switch-toggle-margin);
-  --     }
-  --     &:before {
-  --       opacity: 1;
-  --       transform: none;
-  --     }
-  --     &:after {
-  --       content: none;
-  --     }
-  --   }
-  -- }
+      appearance        =: none
+      display           =: inlineBlock
+      fontSize          =: inherit
+      margin            =: [0, 0, 0, -togglePadding]
+      width             =: switchWidth
+      height            =: switchHeight
+      cursor            =: pointer
+      borderRadius      =: roundnessOf #switch * switchHeight / 2
+      backgroundColor   =: colorOf #layer
+      transition        =: backgroundColor "0.2s" $ "cubic-bezier" 0.5 0.15 0.2 1
+
+      "&:before" $ do
+        content         =: ""
+        boxSizing       =: borderBox
+        display         =: inlineBlock
+        left            =: toggleMargin
+        top             =: toggleMargin
+        margin          =: 0
+        width           =: toggleSize
+        height          =: toggleSize
+        borderRadius    =: inherit
+        backgroundClip  =: contentBox
+        backgroundColor =: colorOf #toggle -- rgb 1 0 0 -- @base-background-color;
+        transition      =: transform "0.2s" $ "cubic-bezier" 0.5 0.15 0.2 1
+
+      "&:active, &:checked" $ do
+        backgroundColor =: colorOf #layer
+        
+      "&:checked:before" $ do
+        transform =: "translateX" (switchWidth - toggleSize - 2 * toggleMargin)
+
+      "&:before" $ do
+        opacity   =: 1
+        transform =: none
+
+      "&:after" $ do
+        content =: none
 
 
 
 
+
+contentBox = "content-box"
+borderBox = "border-box"
+pointer = "pointer"
+column = "column"
+
+-- custom
+appearance = "-webkit-appearance"
 -- modifyMVar :: MVar a -> (a -> IO (a, b)) -> IO b
 
 
@@ -610,16 +621,15 @@ main = do
     evalThunkPassManager $ do
       registerThunkPass funcEvaluator
       evalThunks
-    pprint =<< get @ThunkMap
+    -- pprint =<< get @ThunkMap
     mapM fixDecl (toList r)
 
   -- pprint fdecls
   -- print =<< readMVar thunkMapRef
 
   -- pprint r
-  return ()
   let css = Doc.renderLineBlock $ Doc.render $ render @Pretty @Less fdecls
-  -- putStrLn $ convert css
+  putStrLn $ convert css
   writeFile "/home/wdanilo/github/luna-dark-ui/styles/test.css" $ convert css
 
 
@@ -639,7 +649,7 @@ main = do
   --   mapM fixDecl (toList r)
   --
 
-  return ()
+  pure ()
 
 -- v1,v2 :: Expr
 -- v1 = 12px

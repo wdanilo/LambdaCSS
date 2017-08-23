@@ -37,6 +37,8 @@ vw      = Unit #vw
 vmin    = Unit #vmin
 vmax    = Unit #vmax
 
+s = Unit #s
+
 
 -- === Instances === --
 
