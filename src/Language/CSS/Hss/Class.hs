@@ -577,20 +577,26 @@ instance Num Expr where
   abs         = mkAppExpr1 "abs"
   signum      = mkAppExpr1 "signum"
 
--- | Syntax `margin := 0 0`
+-- | Syntax `foo := 0 0`
 instance {-# INCOHERENT #-} Eqs '[Expr,t2] => Num (t2 -> Expr) where
   fromInteger t1 t2 = mkLstExpr [fromInteger t1, t2]
   (+) = impossible; (-) = impossible; (*) = impossible; abs = impossible; signum = impossible
 
--- | Syntax `margin := 0 0 0`
+-- | Syntax `foo := 0 0 0`
 instance {-# INCOHERENT #-} Eqs '[Expr,t2,t3] => Num (t2 -> t3 -> Expr) where
   fromInteger t1 t2 t3 = mkLstExpr [fromInteger t1, t2, t3]
   (+) = impossible; (-) = impossible; (*) = impossible; abs = impossible; signum = impossible
 
--- | Syntax `margin := 0 0 0 0`
+-- | Syntax `foo := 0 0 0 0`
 instance {-# INCOHERENT #-} Eqs '[Expr,t2,t3,t4] => Num (t2 -> t3 -> t4 -> Expr) where
   fromInteger t1 t2 t3 t4 = mkLstExpr [fromInteger t1, t2, t3, t4]
   (+) = impossible; (-) = impossible; (*) = impossible; abs = impossible; signum = impossible
+
+-- | Syntax `foo := 0 0 0 0 0`
+instance {-# INCOHERENT #-} Eqs '[Expr,t2,t3,t4,t5] => Num (t2 -> t3 -> t4 -> t5 -> Expr) where
+  fromInteger t1 t2 t3 t4 t5 = mkLstExpr [fromInteger t1, t2, t3, t4, t5]
+  (+) = impossible; (-) = impossible; (*) = impossible; abs = impossible; signum = impossible
+
 
 -- | Syntax `var =: 1.5`
 instance Fractional Expr where

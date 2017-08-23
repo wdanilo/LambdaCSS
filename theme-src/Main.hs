@@ -1,55 +1,3 @@
-{-# LANGUAGE NoMonomorphismRestriction   #-}
-{-# LANGUAGE PatternSynonyms   #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE OverloadedLists   #-}
-{-# LANGUAGE Strict   #-}
-
-{-# LANGUAGE AllowAmbiguousTypes #-}
-{-# LANGUAGE ApplicativeDo #-}
-{-# LANGUAGE Arrows #-}
-{-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE BinaryLiterals #-}
-{-# LANGUAGE ConstraintKinds #-}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE DefaultSignatures #-}
-{-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE DeriveFoldable #-}
-{-# LANGUAGE DeriveFunctor #-}
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE DeriveTraversable #-}
-{-# LANGUAGE DoAndIfThenElse #-}
-{-# LANGUAGE DuplicateRecordFields #-}
-{-# LANGUAGE EmptyDataDecls #-}
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE InstanceSigs #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE MonadComprehensions #-}
-{-# LANGUAGE MultiWayIf #-}
-{-# LANGUAGE NamedWildCards #-}
-{-# LANGUAGE NegativeLiterals #-}
-{-# LANGUAGE NoImplicitPrelude #-}
-{-# LANGUAGE NumDecimals #-}
-{-# LANGUAGE OverloadedLabels #-}
-{-# LANGUAGE PackageImports #-}
-{-# LANGUAGE QuasiQuotes #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE RecursiveDo #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TupleSections #-}
-{-# LANGUAGE TypeApplications #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE TypeFamilyDependencies #-}
-{-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE ViewPatterns #-}
-{-# LANGUAGE LiberalTypeSynonyms #-}
-{-# LANGUAGE RelaxedPolyRec #-}
-
-
 module Main where
 
 import Control.Monad.State.Layered
@@ -74,87 +22,19 @@ import Data.Color
 import qualified Data.Layout as Doc
 import Data.Hashable (hash)
 
+import Luna.Studio.Theme.UI.Prim
+import Luna.Studio.Theme.UI.Utils
 
-data Font = Font { _size :: Expr }
-makeLenses ''Font
 
-instance Mempty    Font where mempty  = Font (12px)
--- instance Semigroup Font where (<>)    = undefined -- FIXME
--- instance P.Monoid  Font where mempty  = mempty
---                               mappend = (<>)
-
-fontMap :: Map Text Font
-fontMap = fromList
-  [ (#base       , Font (12px))
-  , (#section    , Font (36px))
-  , (#description, Font (13px))
-  ]
-
-fontOf :: HasCallStack => Text -> Font
-fontOf t = fontMap ^?! ix t
-
-fontSizeOf :: HasCallStack => Text -> Expr
-fontSizeOf t = fontOf t ^. size
-
-marginMap :: Map Text Expr
-marginMap = fromList
-  [ (#base               , base)
-  , (#panel              , base * 2)
-  , (#item               , base)
-  , (#subSection         , uiSize * 5)
-  , (#sectionSide        , uiSize * 4)
-  , (#sectionDesc        , uiSize * 1.5)
-  , (#sectionBody        , uiSize * 3)
-  , (#description        , uiSize)
-  , (#title              , uiSize)
-  , (#secondaryInfo      , uiSize)
-  , (#option             , uiSize * 1.5)
-  , (#optionDescription  , uiSize / 2.5)
-  , (#inlineControl      , uiSize * 0.9)
-  ] where base = 20px
-
-roundnessMap :: Map Text Expr
-roundnessMap = fromList
-  [ (#base               , base)
-  , (#switch             , base)
-  ] where base = 1
-
-colorMap :: Map Text Expr
-colorMap = fromList
-  [ (#text   , rgba 1 1 1 0.6)
-  , (#layer  , rgba 1 1 1 0.05)
-  , (#toggle , rgba 1 1 1 0.14)
-  ]
-
-radiusMap :: Map Text Expr
-radiusMap = fromList
-  [ (#button , 8px)
-  , (#card   , 40px)
-  ]
-
-marginOf :: HasCallStack => Text -> Expr
-marginOf t = marginMap ^?! ix t
-
-roundnessOf :: HasCallStack => Text -> Expr
-roundnessOf t = roundnessMap ^?! ix t
-
-radiusOf :: HasCallStack => Text -> Expr
-radiusOf t = radiusMap ^?! ix t
-
-colorOf :: HasCallStack => Text -> Expr
-colorOf t = colorMap ^?! ix t
-
-uiSize :: Expr
-uiSize = 12px
 
 iconOffset :: Expr
 iconOffset = 0.4
 
-iconStyle       :: MonadThunk m => StyleT m ()
+iconStyle           :: MonadThunk m => StyleT m ()
 scaledIconStyleFor' :: MonadThunk m => Bool -> Expr -> Text -> StyleT m ()
-iconStyle    = iconStyleFor #base
-iconStyleFor = scaledIconStyleFor 1.5
-iconStyleForHack = scaledIconStyleFor' True 1.5
+iconStyle          = iconStyleFor #base
+iconStyleFor       = scaledIconStyleFor 1.5
+iconStyleForHack   = scaledIconStyleFor' True 1.5
 scaledIconStyleFor = scaledIconStyleFor' False
 scaledIconStyleFor' useHack scale s = do
   let fss = round (fontSizeOf s * scale)
@@ -179,40 +59,6 @@ setSectionColor c = do
 
 menuItemOffset :: Expr
 menuItemOffset = marginOf #item * 2 + (fontSizeOf #base)
-
--- Warning: Less "fade" casts argument to percent
-subtle :: Expr -> Expr
-subtle a = "fade" a (100 * 0.4 * alpha a)
-
-secondary :: Expr -> Expr
-secondary a = "fade" a (100 * 0.5 * alpha a)
-
-alpha :: Expr -> Expr
-alpha a = "alpha" a
-
-hover :: Expr -> Expr
-hover a = "fadein" a (4pct)
-
-selected :: Expr -> Expr
-selected a = "fadein" a (8pct)
-
-highlighted :: Expr -> Expr
-highlighted a = "fadein" a (8pct)
-
-disabled :: Expr -> Expr
-disabled a = "fade" a (100 * 0.5 * alpha a)
-
-darken :: Expr -> Expr -> Expr
-darken = "darken"
-
-lighten :: Expr -> Expr -> Expr
-lighten = "lighten"
-
-fade :: Expr -> Expr -> Expr
-fade a n = "fadein" a (n * 100)
-
-white = rgb 1 1 1
-black = rgb 0 0 0
 
 
 focusMixin :: MonadThunk m => StyleT m ()
@@ -258,26 +104,9 @@ btnVariant baseColor = do
   "&.icon:before" $ color =: ncolor;
 
 
--- === Raw Less bindings === --
--- TODO: majority of the bindings should be removed and re-implemented here
-accentColor        = var "accent-color"
-accentColorSubtle  = var "accent-color-subtle"
-accentBgLayerColor = var "accent-bg-layer-color"
 
-
-vcenterChildren = do
-  display        =: flex
-  flexDirection  =: column
-  justifyContent =: center
-
--- c =: hover $ subtle $ colorOf #text
-root :: MonadThunk m => StyleT m ()
-root = do
-
-  ------------------
-  -- === Menu === --
-  ------------------
-
+configMenuStyle :: MonadThunk m => StyleT m ()
+configMenuStyle = do
   #settingsView $ do
     #configMenu $ do
       position   =: relative
@@ -322,12 +151,10 @@ root = do
           iconStyle
 
 
-  ----------------------
-  -- === Sections === --
-  ----------------------
+sectionStyle :: MonadThunk m => StyleT m ()
+sectionStyle = do
 
   -- === Layout === --
-
   #settingsView $ do
     ".panels-item > .section:first-child" $ marginTop =: 0
     #subSection $ marginTop =: marginOf #subSection
@@ -341,9 +168,7 @@ root = do
       #sectionBody $
         marginTop =: marginOf #sectionBody;
 
-
   -- === Look === --
-
   #settingsView $ do
     #panels  . #section $ "&, &.settings-panel" $ border =: 0 !important
     #section . #icon    $ "&.section-heading, &.sub-section-heading" $ do
@@ -357,9 +182,7 @@ root = do
         color      =: secondary $ colorOf #text
         background =: colorOf #layer;
 
-
   -- === Controls layout === --
-
   #settingsView $ do
     #controlGroup $ do
       marginTop    =: marginOf #option !important
@@ -374,10 +197,8 @@ root = do
       marginBottom =: 4px
 
 
-  -------------------
-  -- === Cards === --
-  -------------------
-
+cardStyle :: MonadThunk m => StyleT m ()
+cardStyle = do
   #settingsView $ do
 
     #packageContainer $ do
@@ -430,20 +251,24 @@ root = do
         marginTop    =: (marginOf #item - fontSizeOf #base) / 2
         marginBottom =: (marginOf #item - fontSizeOf #base) / 2
 
+    -- button roundness
+    #meta . #btnToolbar . #btnGroup $ do
+      ".btn.enablement" $ borderRadius =: 0 (1em) (1em) 0
+      "[style=\"display: none;\"] + .btn.enablement" $ do
+        borderRadius =: 1em
 
-    ----------------------
-    -- === Specific === --
-    ----------------------
 
-    -- === Top level seciton notes === --
-
+specificSettingsStyle :: MonadThunk m => StyleT m ()
+specificSettingsStyle = do
+  -- === Top level seciton notes === --
+  #settingsView $ do
     "[id=\"editor-settings-note\"], [id=\"core-settings-note\"], .native-key-bindings:not(.table)" $ do
       color =: secondary $ colorOf #text
       "&::before, .icon::before" $ display =: none
 
 
-    -- === Key binding list === --
-
+  -- === Key binding list === --
+  #settingsView $ do
     ".native-key-bindings.table.text" $ do
       "table, th, td, tr"  $ do
         border =: none
@@ -452,8 +277,8 @@ root = do
       "tr:nth-child(even)" $ backgroundColor =: disabled $ colorOf #layer
 
 
-    -- === Theme chooser === --
-
+  -- === Theme chooser === --
+  #settingsView $ do
     #themesPanel . #themesPicker $ do
       marginTop =: marginOf #sectionBody
       #controlGroup $ do
@@ -486,18 +311,34 @@ root = do
           ":last-child"  $ borderBottomRightRadius =: 12px
 
 
-  ------------------------
-  -- === Components === --
-  ------------------------
+  -- === Updates view === --
+  #settingsView $ do
+    #updatesBtnGroup $ do
+      #btn $ do
+        fontSize     =: 14px
+        borderRadius =: 0
+      "& :first-child" $ do
+        margin                  =: 0
+        borderTopLeftRadius     =: 1em
+        borderBottomLeftRadius  =: 1em
+      "& :last-child" $ do
+        marginLeft              =: 1px
+        borderTopRightRadius    =: 1em
+        borderBottomRightRadius =: 1em
 
+      -- If no internet connection, update button is hidden:
+      "& [style=\"display: none;\"] + .btn" $ do
+        borderRadius =: 1em
+
+
+componentStyle :: MonadThunk m => StyleT m ()
+componentStyle = do
   -- === Links === --
-
   #settingsView . ".link, .link:hover" $ do
     color =: accentColorSubtle
 
 
   -- === Mini editor === --
-
   ".editor.mini" . "&, &.is-focused" $ do
     background =: colorOf #layer
     border     =: none
@@ -506,10 +347,10 @@ root = do
 
 
   -- === Drop-down lists === --
-
   #formControl $ do
-    border    =: 0
-    fontSize  =: fontSizeOf #base * 1.25
+    "option" $ backgroundColor =: bakedColorOf #layer !important
+    border        =: 0
+    fontSize      =: fontSizeOf #base * 1.25
     paddingTop    =: 0
     paddingBottom =: 0
     borderRadius  =: 20px
@@ -517,8 +358,25 @@ root = do
       background =: colorOf #layer !important
 
 
-  -- === Checkbox === --
+  -- === Loading boxes === --
+  #settingsView . #alert $ do
+    padding      =: [1em, 1em, 1em, 1em]
+    borderRadius =: 1em
+    background   =: colorOf #layer
+    "&, &::before" $ color =: colorOf #text
 
+    -- beginning of errors (like pkg fetching error) use this class ...
+    #nativeKeyBindings $ color  =: colorOf #text
+    #errorLink         $ color  =: colorOf #text
+    #padded            $ margin =: 0 (-2em) (-2em) (-2em)
+
+    #errorDetails $ do
+      borderRadius            =: 0
+      borderBottomLeftRadius  =: 1em
+      borderBottomRightRadius =: 1em
+
+
+  -- === Checkbox === --
   let switchWidth  = 34px
       switchHeight = 16px
       toggleOffset = 4px
@@ -556,7 +414,7 @@ root = do
 
       "&:active, &:checked" $ do
         backgroundColor =: colorOf #layer
-        
+
       "&:checked:before" $ do
         transform =: "translateX" (switchWidth - toggleSize - 2 * toggleMargin)
 
@@ -568,54 +426,56 @@ root = do
         content =: none
 
 
+  -- === Slider === --
+  #settingsView . #slider $ do
+    marginTop      =: 10px
+    marginBottom   =: 10px
+    #label $ color =: secondary (colorOf #text) !important
+    #inputRange $ do
+      zIndex       =: 0
+      margin       =: 0
+      position     =: relative
+      appearance   =: none
+      background   =: transparent
+      display      =: inlineBlock
+      height       =: switchHeight -- FIXME
+      borderRadius =: roundnessOf #switch * switchHeight / 2
+      overflow     =: hidden
+
+      "&, &:focus" $ do
+        "&::-webkit-slider-thumb" $ do
+          height       =: switchHeight;
+          width        =: 0
+          borderRadius =: 0
+          cursor       =: pointer
+          boxShadow    =: [-400px, 0, 0 ,400px, colorOf #layer]
+
+      "&::-webkit-slider-runnable-track" $ do
+        width        =: 100pct
+        height       =: switchHeight
+        cursor       =: pointer
+        background   =: colorOf #layer
+        borderRadius =: roundnessOf #switch * switchHeight / 2
 
 
 
-contentBox = "content-box"
-borderBox = "border-box"
-pointer = "pointer"
-column = "column"
 
--- custom
-appearance = "-webkit-appearance"
--- modifyMVar :: MVar a -> (a -> IO (a, b)) -> IO b
+root :: MonadThunk m => StyleT m ()
+root = do
 
-
-
+  configMenuStyle
+  sectionStyle
+  cardStyle
+  specificSettingsStyle
+  componentStyle
 
 
-characters :: [Char]
-characters = "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-
-basex :: Int
-basex = length characters
-
-encode :: Int -> [Char]
-encode n =
-  reverse [characters !! (x `mod` basex) | x <- takeWhile (> 0) (iterate (\x -> x `P.div` basex) n)]
-
--- decode :: [Char] -> Int
--- decode code =
---   foldl (\r c -> (basex * r) + fromJust (elemIndex c characters)) 0 code
 
 main :: IO ()
 main = do
-  -- let c = rgb 1 2 3
-  --     t = convert' c :: SomeTone '[RGB, HSL]
-  -- print t
-  -- print (convert t :: RGB)
-
-  -- print $ foo <$> [0..10]
-
-  -- M2.test
-  -- pprint style
-
-
-
   fdecls <- flip evalStateT (mempty :: ThunkMap) $ do
     r <- joinStyleT root
     -- pprint r
-
     -- print =<< getSortedThunks
     -- pprint =<< get @ThunkMap
     evalThunkPassManager $ do
@@ -630,30 +490,4 @@ main = do
   -- pprint r
   let css = Doc.renderLineBlock $ Doc.render $ render @Pretty @Less fdecls
   putStrLn $ convert css
-  writeFile "/home/wdanilo/github/luna-dark-ui/styles/test.css" $ convert css
-
-
-
-  -- fdecls <- flip evalStateT (mempty :: ThunkMap) $ do
-  --   print "-- 1"
-  --   r <- joinStyleT root2
-  --   pprint r
-  --
-  --   -- print =<< getSortedThunks
-  --   print "-- 3"
-  --   pprint =<< get @ThunkMap
-  --   -- evalThunkPassManager $ do
-  --   --   registerThunkPass funcEvaluator
-  --   --   evalThunks
-  --   -- pprint =<< get @ThunkMap
-  --   mapM fixDecl (toList r)
-  --
-
-  pure ()
-
--- v1,v2 :: Expr
--- v1 = 12px
-v2 = 12px !important
-
-root2 :: MonadThunk m => StyleT m ()
-root2 = background =: v2
+  writeFile "/home/wdanilo/github/luna-dark-ui/styles/style.css" $ convert css

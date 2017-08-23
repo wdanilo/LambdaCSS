@@ -1,2 +1,2 @@
 #!/bin/bash
-python3 watch.py | stack repl Test.hs
+python3 ../watch.py | stack exec ghci
