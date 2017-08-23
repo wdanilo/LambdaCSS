@@ -458,6 +458,58 @@ componentStyle = do
         borderRadius =: roundnessOf #switch * switchHeight / 2
 
 
+panelStyle :: MonadThunk m => StyleT m ()
+panelStyle = do
+  "atom-panel" $ do
+    position =: relative
+    "&.top"    $ borderBottom =: [sizeOf #paneBorder, solid, colorOf #border]
+    "&.top"    $ borderBottom =: [sizeOf #paneBorder, solid, colorOf #border]
+    "&.left"   $ borderRight  =: [sizeOf #paneBorder, solid, colorOf #border]
+    "&.right"  $ borderLeft   =: [sizeOf #paneBorder, solid, colorOf #border]
+    "&.bottom" $ borderTop    =: [sizeOf #paneBorder, solid, colorOf #border]
+    "&.footer:last-child" $ borderBottom =: none
+    "&.tool-panel:empty"  $ border       =: none
+
+
+
+
+
+paneStyle :: MonadThunk m => StyleT m ()
+paneStyle = do
+  "atom-pane-container" $ do
+    "atom-pane" $ do
+      position     =: relative;
+      borderRight  =: [sizeOf #paneBorder, solid, colorOf #border]
+      borderBottom =: [sizeOf #paneBorder, solid, colorOf #border]
+
+      -- prevent atom-text-editor from leaking ouside might improve performance
+      #itemViews $ overflow =: hidden
+
+  "atom-workspace" $ do
+    "& .panes" $ do
+      nestedHideBorder_h
+      nestedHideBorder_v
+      "& > .vertical"   $ nestedHideBorder_h
+      "& > .horizontal" $ nestedHideBorder_v
+
+  where
+    maxNesting = 10
+    borderSel_h = ".horizontal > :last-child"
+    borderSel_v = ".vertical > :last-child"
+
+    hideBorder t = do
+      t =: 0
+      "& > .pane" $ t =: 0
+
+    nestedHideBorderN i s f = "&" f >>$ when (i > 0) $
+        subsection ("& > " <> s) $ nestedHideBorderN (pred i) s f
+
+    hideBorder_h = hideBorder borderRight
+    hideBorder_v = hideBorder borderBottom
+    nestedHideBorder   = nestedHideBorderN maxNesting
+    nestedHideBorder_h = nestedHideBorder borderSel_h hideBorder_h
+    nestedHideBorder_v = nestedHideBorder borderSel_v hideBorder_v
+
 
 
 root :: MonadThunk m => StyleT m ()
@@ -469,6 +521,8 @@ root = do
   specificSettingsStyle
   componentStyle
 
+  panelStyle
+  paneStyle
 
 
 main :: IO ()

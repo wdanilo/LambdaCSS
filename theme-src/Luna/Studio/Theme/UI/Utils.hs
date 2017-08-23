@@ -17,6 +17,7 @@ contentBox = "content-box"
 borderBox = "border-box"
 pointer = "pointer"
 column = "column"
+solid = "solid"
 
 -- custom
 appearance = "-webkit-appearance"

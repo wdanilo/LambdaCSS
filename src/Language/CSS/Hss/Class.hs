@@ -383,6 +383,7 @@ deriving instance Show v => Show (Decl v)
 
 data Selector
   = SimpleSelector Text
+  | MergeSelector  Selector Selector
   | SubSelector    Selector Selector
   deriving (Show)
 
@@ -395,10 +396,8 @@ makeLenses ''Section
 
 -- === Utils === --
 
-embedDecl        :: Monad m => StyleSchemeT v m (Decl    v) -> StyleSchemeT v m ()
 embedSectionDecl :: Monad m => StyleSchemeT v m (Section v) -> StyleSchemeT v m ()
-embedDecl d      = d >>= liftToFreeList
-embedSectionDecl = embedDecl . fmap SectionDecl
+embedSectionDecl = join . fmap (liftToFreeList . SectionDecl)
 
 joinStyleT :: Monad m => StyleSchemeT v m a -> m (StyleScheme v a)
 joinStyleT = fmap wrap . joinFreeListT . unwrap
@@ -406,15 +405,21 @@ joinStyleT = fmap wrap . joinFreeListT . unwrap
 fixDecl :: MonadThunk m => ThunkDecl -> m ValueDecl
 fixDecl = mapM fixThunk
 
+subsection :: Monad m => Selector -> StyleSchemeT v m () -> StyleSchemeT v m ()
+subsection sel sect = embedSectionDecl (Section sel <$> lift (joinStyleT sect))
+
 
 -- === Instances === --
 
 -- Selectors
+
+instance Semigroup Selector where (<>) = MergeSelector
+
 instance IsString Selector where
   fromString = SimpleSelector . fromString
-instance {-# OVERLAPPABLE #-} (s ~ StyleSchemeT v (StyleSchemeT v m) (), a ~ (), Monad m)
+instance {-# OVERLAPPABLE #-} (s ~ StyleSchemeT v m (), a ~ (), Monad m)
       => IsString (s -> StyleSchemeT v m a) where
-  fromString sel sect = embedSectionDecl (Section (fromString sel) <$> joinStyleT sect)
+  fromString = subsection . fromString
 
 -- | Syntax `#settingsView $ do ...` <=> `.settingsView {...}`
 instance (IsString (s -> StyleSchemeT v m a), KnownSymbol lab)

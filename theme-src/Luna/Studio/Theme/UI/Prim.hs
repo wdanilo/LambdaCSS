@@ -76,6 +76,17 @@ marginOf :: HasCallStack => Text -> Expr
 marginOf t = marginMap ^?! ix t
 
 
+-- === Measurements === --
+
+sizeMap :: Map Text Expr
+sizeMap = fromList
+  [ (#paneBorder, 4px)
+  ]
+
+sizeOf :: HasCallStack => Text -> Expr
+sizeOf t = sizeMap ^?! ix t
+
+
 -- === Roundness == --
 
 roundnessMap :: Map Text Expr
@@ -105,6 +116,7 @@ colorMap = fromList
   [ (#text   , rgba 1 1 1 0.6)
   , (#layer  , rgba 1 1 1 0.05)
   , (#toggle , rgba 1 1 1 0.14)
+  , (#border , rgba 0 0 0 1)
   ]
 
 colorOf, bakedColorOf :: HasCallStack => Text -> Expr

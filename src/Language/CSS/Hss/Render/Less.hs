@@ -14,7 +14,8 @@ import           Data.Ratio      (numerator, denominator)
 import           Data.Color
 import qualified Data.Char       as Char
 import qualified Data.Text       as Text
-import           Data.Layout     hiding (render)
+import           Data.Layout     hiding (render, indented)
+import qualified Data.Layout     as Doc
 import           Text.Printf
 
 import Data.Functor.Foldable
@@ -23,6 +24,9 @@ import Language.CSS.Hss.Value.Number
 
 showF :: IsString s => Double -> s
 showF = fromString . printf "%f"
+
+
+indented t = hspacing 2 <> t
 
 ----------------------
 -- === Less AST === --
@@ -78,8 +82,9 @@ instance Convertible (RawValueScheme (Fix ValueScheme)) LessVal where
 
 instance Convertible Selector Text where
   convert = \case
-    SimpleSelector a -> a
-    SubSelector l r  -> convert l <> " > " <> convert r
+    SimpleSelector a   -> a
+    MergeSelector  l r -> convert l <> " "   <> convert r
+    SubSelector    l r -> convert l <> " > " <> convert r
 
 
 ----------------------------
@@ -101,7 +106,7 @@ instance PrettyPrinter LessVal where
     LessVar   a -> "@" <> convert a
     LessNum   a -> convert a
     LessTxt   a -> if a == mempty then "\"\"" else convert a
-    LessLst   a -> intercalate space $ parensed . pretty <$> a
+    LessLst   a -> intercalate space $ pretty <$> a
     LessMod t a -> pretty a <+> "!" <> convert t
     LessApp t a -> if (Text.all (Char.isAlphaNum ||. (=='-')) t) && t /= "-"
       then convert t <> parensed (intercalate ", " (pretty <$> a))
