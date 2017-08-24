@@ -36,9 +36,21 @@ iconSize        = 18px
 
 styleTabs = do
 
+  ".pane.active" $ do
+    zIndex =: 10
+    -- border =: 10 px
+    -- boxShadow =: "-3px 0 0 0 #660000, -3px -3px 0 0 #660000"
+    boxShadow =: "-3px -1px 0px 0px #660000, -3px -3px 0px 0px #660000"
+    #insetPanel $ do
+      zIndex     =: 1
+      background =: bgColor
+      boxShadow  =: "3px -3px 0 0 #660000"
+    #itemViews  $ boxShadow =: "-3px 3px 0 0px #660000, 0px 3px 0 0px #660000, 3px -4px 0 0px #660000, 3px 3px 0 0px #660000"
+
+
   -- === Active tab highlight === --
 
-  ".pane.active .tab.active" $ do
+  #tabBar . ".tab.active" $ do
     color =: colorOf #text
     ".icon::before" $ opacity =: alpha $ colorOf #text
 
