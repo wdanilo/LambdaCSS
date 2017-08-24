@@ -37,15 +37,21 @@ iconSize        = 18px
 styleTabs = do
 
   ".pane.active" $ do
+    let bcol = "mix" accentColor black 50
     zIndex =: 10
     -- border =: 10 px
     -- boxShadow =: "-3px 0 0 0 #660000, -3px -3px 0 0 #660000"
-    boxShadow =: "-3px -1px 0px 0px #660000, -3px -3px 0px 0px #660000"
+    -- boxShadow =: "-3px -1px 0px 0px #660000, -3px -3px 0px 0px #660000"
+    boxShadow =: [[-3px, -1px, 0px, 0px, bcol], [-3px, -3px, 0px, 0px, bcol]]
     #insetPanel $ do
       zIndex     =: 1
       background =: bgColor
-      boxShadow  =: "3px -3px 0 0 #660000"
-    #itemViews  $ boxShadow =: "-3px 3px 0 0px #660000, 0px 3px 0 0px #660000, 3px -4px 0 0px #660000, 3px 3px 0 0px #660000"
+      boxShadow  =: [3px, -3px, 0, 0, bcol]
+    #itemViews  $ boxShadow =: [ [-3px, 3px, 0, 0, bcol]
+                               , [0px, 3px, 0, 0, bcol]
+                               , [3px, -4px, 0, 0, bcol]
+                               , [3px, 3px, 0, 0, bcol]
+                               ]
 
 
   -- === Active tab highlight === --

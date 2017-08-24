@@ -109,12 +109,16 @@ instance PrettyPrinter LessVal where
     LessVar   a -> "@" <> convert a
     LessNum   a -> convert a
     LessTxt   a -> if a == mempty then "\"\"" else convert a
-    LessLst   a -> intercalate space $ pretty <$> a
+    LessLst   a -> intercalate sep $ pretty <$> a where
+      sep = if all isLst a then ", " else space
     LessMod t a -> pretty a <+> "!" <> convert t
     LessApp t a -> if (Text.all (Char.isAlphaNum ||. (=='-')) t) && t /= "-"
       then convert t <> parensed (intercalate ", " (pretty <$> a))
       else parensed $ pretty (unsafeHead a) <+> convert t <+> intercalate space (pretty <$> unsafeTail a)
 
+isLst = \case
+  LessLst _ -> True
+  _         -> False
 
 ---------------------------
 -- === Less renderer === --
