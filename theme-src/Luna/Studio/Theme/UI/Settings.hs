@@ -327,9 +327,15 @@ componentStyle = do
 
 
   -- === Mini editor === --
-  ".editor.mini" . "&, &.is-focused" $ do
-    background =: colorOf #layer
-    border     =: none
+  "atom-text-editor[mini]" $ do
+    overflow        =: auto
+    fontSize        =: sizeOf #text
+    lineHeight      =: sizeOf #line
+    maxHeight       =: sizeOf #line * 5 -- rows
+    paddingLeft     =: marginOf #input
+    borderRadius    =: 100px -- FIXME
+    color           =: colorOf #text
+    backgroundColor =: colorOf #layer
     #placeholderText $ do
       color =: subtle $ colorOf #text
 
@@ -397,7 +403,7 @@ componentStyle = do
         height          =: toggleSize
         borderRadius    =: inherit
         backgroundClip  =: contentBox
-        backgroundColor =: colorOf #toggle -- rgb 1 0 0 -- @base-background-color;
+        backgroundColor =: colorOf #toggle -- rgb 1 0 0 -- @base-background-color
         transition      =: transform "0.2s" $ "cubic-bezier" 0.5 0.15 0.2 1
 
       "&:active, &:checked" $ do

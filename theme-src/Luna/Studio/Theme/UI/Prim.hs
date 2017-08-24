@@ -72,6 +72,7 @@ marginMap = fromList
   , (#optionDescription  , uiSize / 2.5)
   , (#inlineControl      , uiSize * 0.9)
   , (#tab                , uiSize)
+  , (#input              , base * 0.5)
   ] where base = 20px
 uiSize = 12px -- FIXME: remove
 
@@ -86,6 +87,7 @@ sizeMap = fromList
   [ (#paneBorder, 4px)
   , (#tab       , uiSize * 3)
   , (#text      , 12px)
+  , (#line      , uiSize * 2)
   ]
 
 sizeOf :: HasCallStack => Text -> Expr
