@@ -49,7 +49,7 @@ styleMinimap = "atom-text-editor atom-text-editor-minimap" $ do
     -- Don't touch it. If you change 0.75 value the blending could break
     -- until chrome blending gets fixed.
     #minimapVisibleArea $ do
-      boxShadow =: [0,0,0,1000px, setAlpha 0.75 bgColor]
+      boxShadow =: [0,0,0,10000px, setAlpha 0.75 bgColor]
       "&::after" $ backgroundColor =: transparent
 
     #minimapControls $ display =: none

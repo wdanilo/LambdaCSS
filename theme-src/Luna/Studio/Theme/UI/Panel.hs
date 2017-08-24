@@ -36,7 +36,7 @@ withNestedPanelsRB fh fv = do
 
 withNestedPanelsRT' f = withNestedPanelsRT f f
 withNestedPanelsRT fh fv = do
-  -- "& > .vertical"   $ withNestedPanelsN 1 lastSubH  fh
+  "& > .vertical"   $ withNestedPanels lastSubH  fh
   "& > .horizontal" $ withNestedPanels firstSubV fv
 
 withNestedPanels = withNestedPanelsN maxNesting
@@ -139,7 +139,7 @@ addPaneHighlight = do
 -- === Inactive panels dim === --
 
 dimInactivePanels = do
-  "atom-workspace .vertical" $ do
+  "atom-workspace > .horizontal > .vertical" $ do
     #pane $ do
       opacity =: 0.8
       transition =: [opacity, animSpeedOf #paneDim]

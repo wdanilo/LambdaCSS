@@ -125,7 +125,7 @@ colorMap = fromList
   , (#layer         , rgba 1 1 1 0.05)
   , (#toggle        , rgba 1 1 1 0.14)
   , (#border        , rgba 0 0 0 1)
-  , (#panelHighlight, "mix" accentColor black 60)
+  , (#panelHighlight, "mix" accentColor black 50)
   ]
 
 colorOf, bakedColorOf :: HasCallStack => Text -> Expr
