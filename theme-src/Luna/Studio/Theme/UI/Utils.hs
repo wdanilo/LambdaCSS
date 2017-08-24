@@ -24,7 +24,7 @@ scale = "scale"
 
 -- custom
 appearance = "-webkit-appearance"
-pointerEvents = "pointerEvents"
+pointerEvents = "pointer-events"
 
 
 -- === Basic colors === --

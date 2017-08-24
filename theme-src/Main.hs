@@ -31,6 +31,7 @@ import Luna.Studio.Theme.UI.Settings
 import Luna.Studio.Theme.UI.Editor
 
 
+
 styleMinimap :: MonadThunk m => StyleT m ()
 styleMinimap = "atom-text-editor atom-text-editor-minimap" $ do
     opacity =: 0.5
@@ -39,13 +40,99 @@ styleMinimap = "atom-text-editor atom-text-editor-minimap" $ do
       opacity =: 1
       transition =: [opacity, animSpeedOf #minimapHover]
 
+    -- Don't touch it. If you change 0.75 value the blending could break
+    -- until chrome blending gets fixed.
     #minimapVisibleArea $ do
-      -- Don't touch it. If you change 0.75 value the blending could break
-      -- until chrome blending gets fixed.
       boxShadow =: [0,0,0,1000px, setAlpha 0.75 bgColor]
       "&::after" $ backgroundColor =: transparent
 
     #minimapControls $ display =: none
+
+
+-- | In order to show scrollbars only on hover, we need a special div structure,
+--   which is rarely implemented among atom plugins.
+
+styleScrollbars = do
+  baseStyleScrollbars
+  styleScrollbarsFallback
+  styleProperScrollbars
+
+
+baseStyleScrollbars = do
+  "::-webkit-scrollbar" $ do
+    width  =: 20px
+    height =: 20px
+
+  "::-webkit-scrollbar-corner" $ do
+    background =: transparent
+
+
+styleScrollbarsFallback = do
+  ":hover" $ do
+    "&::-webkit-scrollbar-thumb" $ do
+      borderRadius    =: 20px
+      border          =: [8px, solid, transparent]
+      backgroundColor =: colorOf #layer
+      backgroundClip  =: contentBox
+
+  "&::-webkit-scrollbar-track" $ do
+    background =: transparent
+
+  "&::-webkit-scrollbar-thumb" $ do
+    borderRadius   =: 20px
+    border         =: [8px, solid, transparent]
+    backgroundColor =: transparent
+    backgroundClip  =: contentBox
+
+  "&::-webkit-scrollbar-thumb:hover" $ do
+    borderRadius   =: 20px
+    border         =: [8px, solid, transparent]
+    background     =: highlighted $ colorOf #layer
+    backgroundClip =: contentBox
+
+
+styleProperScrollbars = do
+  ".vertical-scrollbar, .horizontal-scrollbar" $ do
+    backgroundColor =: rgba 1 1 1 0
+    transition =: [backgroundColor, 0.5s]
+
+    "-webkit-background-clip" =: "text"
+    "&:hover" $ do
+      backgroundColor =: highlighted $ colorOf #layer
+      transition =: [backgroundColor, 0.5s]
+
+    "&::-webkit-scrollbar-track" $ do
+      background =: transparent
+
+    "&::-webkit-scrollbar-thumb" $ do
+      borderRadius   =: 20px
+      border         =: [8px, solid, transparent]
+      -- backgroundColor  =: colorOf #layer
+      backgroundColor     =: inherit -- colorOf #layer
+      backgroundClip =: contentBox
+
+    -- "&::-webkit-scrollbar-thumb:hover" $ do
+    --   borderRadius   =: 5px
+    --   border         =: [8px, solid, transparent]
+    --   background     =: colorOf #layer
+    --   backgroundClip =: contentBox
+
+
+
+
+    -- atom-text-editor
+    --   ::-webkit-scrollbar-track
+    --     background: @scrollbar-background-color-editor
+    --
+    --   ::-webkit-scrollbar-corner
+    --     background: @scrollbar-background-color-editor
+    --
+    --   ::-webkit-scrollbar-thumb
+    --     border-color: @scrollbar-background-color-editor
+    --     background: @scrollbar-color-editor
+
+
+
 
 
 root :: MonadThunk m => StyleT m ()
@@ -55,6 +142,7 @@ root = do
   stylePanels
   styleEditor
   styleMinimap
+  styleScrollbars
 
 
 main :: IO ()
