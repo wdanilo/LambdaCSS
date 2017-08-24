@@ -54,6 +54,7 @@ stylePanels = do
   addPanelBorder
   addPaneBorder
   addPaneHighlight
+  dimInactivePanels
 
 panelBorderStyle = [sizeOf #paneBorder, solid, colorOf #border]
 
@@ -99,17 +100,18 @@ addPaneBorder = do
 -- === Panel selection highlighting === --
 
 addPaneHighlight = do
-  let bcol = "mix" accentColor black 50
+  let bcol = colorOf #panelHighlight
+      bdr  = sizeOf  #paneBorder
       paneShadow        = Lits.fromList paneShadow'
       borderPaneShadow  = Lits.fromList borderPaneShadow'
-      borderPaneShadow' = paneShadow' |> [3px,0,0,0, bcol]
-      paneShadow'       = [ [-3px, -1px, 0, 0, bcol]
-                          , [-3px, -3px, 0, 0, bcol] ]
+      borderPaneShadow' = paneShadow' |> [bdr,0,0,0, bcol]
+      paneShadow'       = [ [-bdr, -1px, 0, 0, bcol]
+                          , [-bdr, -bdr, 0, 0, bcol] ]
 
       panelShadow        = Lits.fromList panelShadow'
       borderPanelShadow  = Lits.fromList borderPanelShadow'
-      borderPanelShadow' = panelShadow' |> ["inset", 0, 3px, 0, 0, bcol]
-      panelShadow'       = [ [3px, -3px, 0, 0, bcol] ]
+      borderPanelShadow' = panelShadow' |> ["inset", 0, bdr, 0, 0, bcol]
+      panelShadow'       = [ [bdr, -bdr, 0, 0, bcol] ]
 
   ".pane.active" $ do
     zIndex =: 10
@@ -118,15 +120,25 @@ addPaneHighlight = do
       zIndex     =: 100
       background =: bgColor
       boxShadow  =: panelShadow
-    #itemViews $ boxShadow =: [ [-3px, 3px, 0, 0, bcol]
-                              , [0, 3px, 0, 0, bcol]
-                              , [3px, -4px, 0, 0, bcol]
-                              , [3px, 3px, 0, 0, bcol]
+    #itemViews $ boxShadow =: [ [-bdr, bdr, 0, 0, bcol]
+                              , [0, bdr, 0, 0, bcol]
+                              , [bdr, -bdr, 0, 0, bcol]
+                              , [bdr, bdr, 0, 0, bcol]
                               ]
 
   "atom-workspace" $ do
     "& .panes" $ do
-      -- go + boxShadow =: borderPaneShadow -- Do we need it? Remove if everything works
-      let go = "&.pane.active, & > .pane.active" $ #insetPanel $ boxShadow  =: borderPanelShadow
+      let go = "&.pane.active, & > .pane.active" $ do
+            #insetPanel $ boxShadow  =: borderPanelShadow
+            -- boxShadow =: borderPaneShadow -- fixing small space right to the tab bar -- TODO: enable wisely, not to break nested borders
       withNestedPanelsRT' go
       return ()
+
+
+
+-- === Inactive panels dim === --
+
+dimInactivePanels = do
+  "atom-workspace .vertical" $ do
+    #pane $ opacity =: 0.85
+    ".pane.active" $ opacity =: 1

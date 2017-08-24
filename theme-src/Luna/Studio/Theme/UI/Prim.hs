@@ -118,10 +118,11 @@ radiusOf t = radiusMap ^?! ix t
 
 colorMap :: Map Text Expr
 colorMap = fromList
-  [ (#text   , rgba 1 1 1 0.6)
-  , (#layer  , rgba 1 1 1 0.05)
-  , (#toggle , rgba 1 1 1 0.14)
-  , (#border , rgba 0 0 0 1)
+  [ (#text          , rgba 1 1 1 0.6)
+  , (#layer         , rgba 1 1 1 0.05)
+  , (#toggle        , rgba 1 1 1 0.14)
+  , (#border        , rgba 0 0 0 1)
+  , (#panelHighlight, "mix" accentColor black 60)
   ]
 
 colorOf, bakedColorOf :: HasCallStack => Text -> Expr
