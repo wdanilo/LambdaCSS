@@ -19,6 +19,7 @@ import Luna.Studio.Theme.UI.Utils
 
 -- TODO: majority of the bindings should be removed and re-implemented here
 accentColor        = var "accent-color"
+accentColorWide    = var "accent-color-wide"
 accentColorSubtle  = var "accent-color-subtle"
 accentBgLayerColor = var "accent-bg-layer-color"
 bgColor            = var "base-background-color"
@@ -38,6 +39,7 @@ makeLenses ''Font
 
 -- === Fonts === --
 
+-- FIXME DEPRECATED: move to sizeOf
 fontMap :: Map Text Font
 fontMap = fromList
   [ (#base       , Font (12px))
@@ -69,6 +71,7 @@ marginMap = fromList
   , (#option             , uiSize * 1.5)
   , (#optionDescription  , uiSize / 2.5)
   , (#inlineControl      , uiSize * 0.9)
+  , (#tab                , uiSize)
   ] where base = 20px
 uiSize = 12px -- FIXME: remove
 
@@ -81,6 +84,8 @@ marginOf t = marginMap ^?! ix t
 sizeMap :: Map Text Expr
 sizeMap = fromList
   [ (#paneBorder, 4px)
+  , (#tab       , uiSize * 3)
+  , (#text      , 12px)
   ]
 
 sizeOf :: HasCallStack => Text -> Expr
@@ -123,6 +128,8 @@ colorOf, bakedColorOf :: HasCallStack => Text -> Expr
 colorOf      t = colorMap ^?! ix t
 bakedColorOf t = colorOf t `flatOver` bgColor
 
+ctxColorAlpha = 0.7 -- FIXME: think how to represent context colors
+
 
 -- === Color modificators === --
 
@@ -130,8 +137,20 @@ subtle, secondary :: Expr -> Expr
 subtle    = modAlpha (* 0.4)
 secondary = modAlpha (* 0.5)
 
-hover, selected, highlighted, disabled :: Expr -> Expr
+hover, selected, highlighted, disabled, inactive :: Expr -> Expr
 hover       = modAlpha (+ 0.04)
 selected    = modAlpha (+ 0.08)
 highlighted = modAlpha (+ 0.08)
 disabled    = modAlpha (* 0.5)
+inactive    = modAlpha (* 0.5)
+
+
+-- === Animations === --
+
+animSpeedMap :: Map Text Expr
+animSpeedMap = fromList
+  [ (#tabCloseIcon, 0.1s)
+  ]
+
+animSpeedOf :: HasCallStack => Text -> Expr
+animSpeedOf t = animSpeedMap ^?! ix t

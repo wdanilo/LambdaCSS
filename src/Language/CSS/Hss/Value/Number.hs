@@ -33,7 +33,10 @@ makeLenses ''Number
 instance Hashable Number
 
 instance Num (Unit -> Number) where
-  fromInteger i = flip Number (fromInteger i) . flip Map.singleton 1
+  fromInteger = fromRational . convert
+
+instance Fractional (Unit -> Number) where
+  fromRational i = flip Number i . flip Map.singleton 1
 
 instance Num Number where
   fromInteger = Number mempty . fromInteger

@@ -18,9 +18,13 @@ borderBox = "border-box"
 pointer = "pointer"
 column = "column"
 solid = "solid"
+auto = "auto"
+absolute = "absolute"
+scale = "scale"
 
 -- custom
 appearance = "-webkit-appearance"
+pointerEvents = "pointerEvents"
 
 
 -- === Basic colors === --

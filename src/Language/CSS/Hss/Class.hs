@@ -619,6 +619,9 @@ instance SemiRealFrac Expr where
 instance Num (Unit -> Expr) where
   fromInteger = mkNumExpr .: fromInteger
 
+instance Fractional (Unit -> Expr) where
+  fromRational = mkNumExpr .: fromRational
+
 -- | Syntax `var =: rgb 1 0 0`
 instance Convertible (Color c) CSSColor
       => Convertible (Color c) Expr where
