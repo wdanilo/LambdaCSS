@@ -152,7 +152,11 @@ inactive    = modAlpha (* 0.5)
 
 animSpeedMap :: Map Text Expr
 animSpeedMap = fromList
-  [ (#tabCloseIcon, 0.1s)
+  [ (#tabCloseIcon    , 0.1s)
+  , (#textColorChange , 0.3s)
+  , (#minimapHover    , 0.2s)
+  , (#tabSwitch       , 0.3s)
+  , (#paneDim         , 0.5s)
   ]
 
 animSpeedOf :: HasCallStack => Text -> Expr

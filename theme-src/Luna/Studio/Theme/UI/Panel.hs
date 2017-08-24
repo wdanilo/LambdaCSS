@@ -140,5 +140,9 @@ addPaneHighlight = do
 
 dimInactivePanels = do
   "atom-workspace .vertical" $ do
-    #pane $ opacity =: 0.85
-    ".pane.active" $ opacity =: 1
+    #pane $ do
+      opacity =: 0.8
+      transition =: [opacity, animSpeedOf #paneDim]
+    ".pane.active" $ do
+      opacity =: 1
+      transition =: [opacity, animSpeedOf #paneDim]

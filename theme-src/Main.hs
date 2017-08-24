@@ -34,10 +34,16 @@ import Luna.Studio.Theme.UI.Editor
 styleMinimap :: MonadThunk m => StyleT m ()
 styleMinimap = "atom-text-editor atom-text-editor-minimap" $ do
     opacity =: 0.5
-    "&:hover" $ opacity =: 1
+    transition =: [opacity, animSpeedOf #minimapHover]
+    "&:hover" $ do
+      opacity =: 1
+      transition =: [opacity, animSpeedOf #minimapHover]
+
     #minimapVisibleArea $ do
       boxShadow =: [0,0,0,10000px, setAlpha 0.8 bgColor]
       "&::after" $ backgroundColor =: transparent
+
+    #minimapControls $ display =: none
 
 root :: MonadThunk m => StyleT m ()
 root = do

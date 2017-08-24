@@ -24,17 +24,21 @@ styleGitMarkers :: MonadThunk m => StyleT m ()
 styleGitMarkers = "atom-text-editor .gutter .line-number" $ do
   let clr = setAlpha 0.2 $ colorOf #text
   let styleMarker c = do
+        transition =: [color, animSpeedOf #textColorChange]
         borderLeft =: [2px, solid, transparent]
         color      =: setAlpha 0.5 c
         "&.cursor-line" $ do
+          transition =: [color, animSpeedOf #textColorChange]
           color =: setAlpha 0.8 c
 
   opacity    =: 1
   color      =: clr
   marginLeft =: 10px
+  transition =: [color, animSpeedOf #textColorChange]
 
   "&.cursor-line" $ do
     color =: setAlpha 0.5 $ colorOf #text
+    transition =: [color, animSpeedOf #textColorChange]
 
   "&.git-line-added"    $ styleMarker "#b5bd68"
   "&.git-line-modified" $ styleMarker "#de935f"

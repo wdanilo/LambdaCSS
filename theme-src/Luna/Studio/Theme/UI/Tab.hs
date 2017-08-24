@@ -24,8 +24,12 @@ styleTabs = do
   -- === Active tab highlight === --
 
   #tabBar . ".tab.active" $ do
-    color =: colorOf #text
-    ".icon::before" $ opacity =: alpha $ colorOf #text
+    color      =: colorOf #text
+    transition =: [color, animSpeedOf #tabSwitch]
+    ".icon::before" $ do
+      opacity    =: alpha $ colorOf #text
+      transition =: [opacity, animSpeedOf #tabSwitch]
+
 
 
   -- === Padding === --
@@ -57,9 +61,12 @@ styleTabs = do
     lineHeight      =: sizeOf #tab
     backgroundColor =: none
     color           =: inactive (colorOf #text)
+    transition      =: [color, animSpeedOf #tabSwitch]
     ".icon::before" $ do
-      position =: inherit
-      opacity  =: alpha $ inactive (colorOf #text)
+      position   =: inherit
+      opacity    =: alpha $ inactive (colorOf #text)
+      transition =: [opacity, animSpeedOf #tabSwitch]
+
 
     -- text
     #title $ do
