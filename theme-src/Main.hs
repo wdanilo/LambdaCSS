@@ -31,6 +31,12 @@ import Luna.Studio.Theme.UI.Settings
 import Luna.Studio.Theme.UI.Editor
 
 
+globalStyles = do
+  "*"              $ boxSizing       =: borderBox
+  "html"           $ fontSize        =: sizeOf #text
+  "atom-workspace" $ backgroundColor =: bgColor
+
+
 
 styleMinimap :: MonadThunk m => StyleT m ()
 styleMinimap = "atom-text-editor atom-text-editor-minimap" $ do
@@ -137,12 +143,14 @@ styleProperScrollbars = do
 
 root :: MonadThunk m => StyleT m ()
 root = do
+  globalStyles
   styleSettings
   styleTabs
   stylePanels
   styleEditor
   styleMinimap
   styleScrollbars
+
 
 
 main :: IO ()
