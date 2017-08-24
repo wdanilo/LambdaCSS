@@ -28,40 +28,24 @@ import Luna.Studio.Theme.UI.Utils
 import Luna.Studio.Theme.UI.Panel
 import Luna.Studio.Theme.UI.Tab
 import Luna.Studio.Theme.UI.Settings
+import Luna.Studio.Theme.UI.Editor
 
 
-
-
-
-styleGitMarkers :: MonadThunk m => StyleT m ()
-styleGitMarkers = "atom-text-editor .gutter .line-number" $ do
-  let clr = setAlpha 0.6 $ colorOf #text
-  opacity =: 0.25
-  color   =: clr
-  "&.cursor-line" $ do
-    opacity =: 0.8!important
-    color   =: clr
-  "&.git-line-added" $ do
-    borderLeft =: [2px, solid, transparent]
-    color      =: "#b5bd68"
-    opacity    =: 0.5
-
-  "&.git-line-modified" $ do
-    borderLeft =: [2px, solid, transparent]
-    color      =: "#de935f"
-    opacity    =: 0.5
-
-
-
+styleMinimap :: MonadThunk m => StyleT m ()
+styleMinimap = "atom-text-editor atom-text-editor-minimap" $ do
+    opacity =: 0.5
+    "&:hover" $ opacity =: 1
+    #minimapVisibleArea $ do
+      boxShadow =: [0,0,0,10000px, setAlpha 0.8 bgColor]
+      "&::after" $ backgroundColor =: transparent
 
 root :: MonadThunk m => StyleT m ()
 root = do
   styleSettings
   styleTabs
   stylePanels
-
-  styleGitMarkers
-
+  styleEditor
+  styleMinimap
 
 
 main :: IO ()
