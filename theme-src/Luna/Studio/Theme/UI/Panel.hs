@@ -1,4 +1,4 @@
-module Luna.Studio.Theme.UI.Panels where
+module Luna.Studio.Theme.UI.Panel where
 
 import Prologue hiding (none)
 
