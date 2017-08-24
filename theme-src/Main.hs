@@ -33,6 +33,25 @@ import Luna.Studio.Theme.UI.Settings
 
 
 
+styleGitMarkers :: MonadThunk m => StyleT m ()
+styleGitMarkers = "atom-text-editor .gutter .line-number" $ do
+  let clr = setAlpha 0.6 $ colorOf #text
+  opacity =: 0.25
+  color   =: clr
+  "&.cursor-line" $ do
+    opacity =: 0.8!important
+    color   =: clr
+  "&.git-line-added" $ do
+    borderLeft =: [2px, solid, transparent]
+    color      =: "#b5bd68"
+    opacity    =: 0.5
+
+  "&.git-line-modified" $ do
+    borderLeft =: [2px, solid, transparent]
+    color      =: "#de935f"
+    opacity    =: 0.5
+
+
 
 
 root :: MonadThunk m => StyleT m ()
@@ -41,12 +60,14 @@ root = do
   styleTabs
   stylePanels
 
+  styleGitMarkers
+
+
 
 main :: IO ()
 main = do
   fdecls <- flip evalStateT (mempty :: ThunkMap) $ do
     r <- joinStyleT root
-    -- pprint r
     -- print =<< getSortedThunks
     -- pprint =<< get @ThunkMap
     evalThunkPassManager $ do
