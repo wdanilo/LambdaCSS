@@ -32,40 +32,70 @@ import Luna.Studio.Theme.UI.Editor
 
 --
 
-styleMessages = "atom-notification" $ do
+zero :: MonadThunk m => [Pattern] -> StyleT m ()
+zero = mapM_ (=: 0)
+
+styleMessages = "atom-notifications atom-notification" $ do
   return ()
   "&.error, &.fatal" $ do
+    let bg = "mix" black "#d13b2e" 20
+    "&.icon::before" $ backgroundColor =: bg
+    #content         $ backgroundColor =: bg
+  "&.warning" $ do
+    let bg = "mix" black "#e29433" 20
+    "&.icon::before" $ backgroundColor =: bg
+    #content         $ backgroundColor =: bg
+  "&.info" $ do
+    let bg = "mix" black "#339ae2" 24
+    "&.icon::before" $ backgroundColor =: bg
+    #content         $ backgroundColor =: bg
+  "&.success" $ do
+    let bg = "mix" black "#a7cb30" 20
+    "&.icon::before" $ backgroundColor =: bg
+    #content         $ backgroundColor =: bg
+  "&.error, &.fatal, &.warning, &.info, &.success" $ do
     "&::before" $ do
-      width =: 40 px
+      paddingTop =: 12 px
+      width =: 40 px !important
       borderRadius =: [radiusOf #message,0,0,radiusOf #message]
     ".btn.close-all" $ do
-      border          =: 0
+      zero [border]
       color           =: highlighted $ colorOf #text
       backgroundColor =: highlighted $ colorOf #layer
+      "&:hover" $ do
+        color           =: highlighted $ colorOf #text
+        backgroundColor =: highlighted $ highlighted $ colorOf #layer
     ".close.icon" $ do
       color =: white
     #content $ do
       padding      =: 10px
       borderRadius =: [0,radiusOf #message,radiusOf #message,0]
       color        =: highlighted $ colorOf #text
-      backgroundColor =: "#d13b2e"
       #message $ do
-        padding      =: 0
+        zero [padding]
         marginBottom =: marginOf #description
         fontSize     =: sizeOf #title
         fontWeight   =: 800
       #detail $ do
-        padding         =: 0
-        border          =: 0
-        margin          =: 0 -- [10px,0,10px,0]
+        zero [padding, border, margin]
         fontSize        =: sizeOf #text
         backgroundColor =: transparent
-        color           =: colorOf #text
+        color           =: highlighted $ colorOf #text
         #stackToggle $ do
-          color =: colorOf #text
+          marginTop =: marginOf #description
+          color     =: highlighted $ colorOf #text
           ".icon::before" $ do
             fontSize    =: sizeOf #text
             marginRight =: 3px
+        #stackContainer $ do
+          zero [margin]
+          marginLeft =: 20px
+      #meta $ do
+        zero [padding]
+        color        =: highlighted $ colorOf #text
+        marginTop    =: marginOf #description
+        marginBottom =: marginOf #description
+        border       =: none
 
 
 globalStyles = do

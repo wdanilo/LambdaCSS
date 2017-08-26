@@ -144,7 +144,7 @@ sectionStyle = do
 
   -- === Layout === --
   #settingsView $ do
-    ".panels-item > .section:first-child" $ marginTop =: 0
+    ".panels-item > .section:first-child" $ marginTop =: 5px
     #subSection $ marginTop =: marginOf #subSection
     #section $ do
       padding =: 0 !important

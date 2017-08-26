@@ -89,7 +89,7 @@ sizeMap = fromList
   , (#tab         , uiSize * 3)
   , (#text        , 12px)
   , (#title       , 13px)
-  , (#heading     , 16px)
+  -- , (#heading     , 16px)
   , (#section     , 16px)
   , (#description , 12px)
   , (#line        , uiSize * 2)
