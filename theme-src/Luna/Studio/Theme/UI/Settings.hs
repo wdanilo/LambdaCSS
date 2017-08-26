@@ -108,12 +108,12 @@ configMenuStyle = do
       ".nav > li" $ do
         borderRadius =: radiusOf #button
         "&:hover" $ do
-          #icon $ setColor $ hover $ subtle $ colorOf #text
-          backgroundColor =: hover (rgba 1 1 1 0)
+          #icon $ setColor $ hovered $ subtle $ colorOf #text
+          backgroundColor =: colorOf #hoverLayer
 
         "&.active" . "&, &:hover" $ do
           #icon $ setColor $ colorOf #text
-          background =: selected (rgba 1 1 1 0)
+          background =: colorOf #selectLayer
 
         #icon $ do
           padding    =: 0
@@ -134,7 +134,7 @@ configMenuStyle = do
           marginLeft =: marginOf #item
           lineHeight =: menuItemOffset
           background =: none
-          "&:hover" . setColor $ hover $ subtle $ colorOf #text
+          "&:hover" . setColor $ hovered $ subtle $ colorOf #text
           setColor $ subtle $ colorOf #text
           iconStyle
 
@@ -205,7 +205,7 @@ cardStyle = do
       padding       =: 19px
       background    =: colorOf #layer
       marginBottom  =: 3px
-      "&:hover"    $ background =: hover    $ colorOf #layer
+      "&:hover"    $ background =: hovered  $ colorOf #layer
       "&.disabled" $ background =: disabled $ colorOf #layer
 
       #packageDescription $ do

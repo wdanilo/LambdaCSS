@@ -35,24 +35,79 @@ import Luna.Studio.Theme.UI.Editor
 zero :: MonadThunk m => [Pattern] -> StyleT m ()
 zero = mapM_ (=: 0)
 
-styleMessages = "atom-notifications atom-notification" $ do
+styleTreeView :: MonadThunk m => StyleT m ()
+styleTreeView = do
+  -- We assume that tree view is on the left side
+  -- There is no way to discover tree-view using available selectors
+  ".atom-dock-inner.left .tab-bar" $ display =: none
+
+  #treeView $ do
+    ".full-menu.list-tree" $ do
+      marginLeft  =: 14px
+      paddingLeft =: 6px
+      minWidth =: 0
+    ".selected::before" $ do
+      backgroundColor =: colorOf #selectLayer
+      borderRadius    =: 10px
+
+    fontSize =: sizeOf #text
+    #projectRoot $ do
+      "& > .header" $ do
+        fontSize =: sizeOf #title
+        marginTop =: marginOf #title
+        fontWeight =: 600 !important
+    -- ".file.list-item:not(.opened), .directory:not(.opened) > div" $ do
+    -- color =: rgb 1 0 0
+    -- ".file.list-item:not(.opened), .directory:not(.opened) > div" $ do
+    ".file.list-item, .directory" $ do
+      let activeColor   = colorOf #text
+          inactiveColor = inactive $ activeColor
+          styleItem col = do
+            styleItem' col
+            "&.list-item.header::before" $ opacity =: alpha col
+            ".name::before"              $ opacity =: alpha col
+            "&.status-modified" $ styleItem' $ setAlpha (alpha col) $ colorOf #gitModified
+            "&.status-added"    $ styleItem' $ setAlpha (alpha col) $ colorOf #gitAdded
+          styleItem' col = do
+            "> .name"     $ color =: col
+            "> .header"   $ do
+              ".name"     $ color =: col
+              "&::before" $ color =: col
+
+      styleItem activeColor
+      "&:not(.opened)" $ "&, & > div.header" $ do
+        styleItem inactiveColor
   return ()
-  "&.error, &.fatal" $ do
-    let bg = "mix" black "#d13b2e" 20
-    "&.icon::before" $ backgroundColor =: bg
-    #content         $ backgroundColor =: bg
-  "&.warning" $ do
-    let bg = "mix" black "#e29433" 20
-    "&.icon::before" $ backgroundColor =: bg
-    #content         $ backgroundColor =: bg
-  "&.info" $ do
-    let bg = "mix" black "#339ae2" 24
-    "&.icon::before" $ backgroundColor =: bg
-    #content         $ backgroundColor =: bg
-  "&.success" $ do
-    let bg = "mix" black "#a7cb30" 20
-    "&.icon::before" $ backgroundColor =: bg
-    #content         $ backgroundColor =: bg
+
+    --
+    -- .selected
+    --   color: @text-color
+    --
+    -- &:hover
+    --   .file.list-item:not(.opened),
+    --   .directory:not(.opened) > div
+    --       opacity:0.5
+    --       transition: opacity 0.2s
+    --       &:hover
+    --         opacity:0.7
+    --         transition: opacity 0.2s
+
+
+
+
+
+
+
+styleMessages = "atom-notifications atom-notification" $ do
+  let styleLayer :: MonadThunk m => Text -> StyleT m ()
+      styleLayer name = do
+        convert ("&." <> name) $ do
+          let bg = colorOf (name <> "Layer")
+          "&.icon::before" $ backgroundColor =: bg
+          #content         $ backgroundColor =: bg
+
+  mapM styleLayer ([#error, #fatal, #warning, #info, #success] :: [Text])
+
   "&.error, &.fatal, &.warning, &.info, &.success" $ do
     "&::before" $ do
       paddingTop =: 12 px
@@ -218,6 +273,7 @@ root = do
   styleMinimap
   styleScrollbars
   styleMessages
+  styleTreeView
 
 
 

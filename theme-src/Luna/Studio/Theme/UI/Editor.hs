@@ -40,8 +40,8 @@ styleGitMarkers = "atom-text-editor .gutter .line-number" $ do
     color =: setAlpha 0.5 $ colorOf #text
     transition =: [color, animSpeedOf #textColorChange]
 
-  "&.git-line-added"    $ styleMarker "#b5bd68"
-  "&.git-line-modified" $ styleMarker "#de935f"
+  "&.git-line-added"    $ styleMarker (colorOf #gitAdded)
+  "&.git-line-modified" $ styleMarker (colorOf #gitModified)
   "&.git-line-removed:before" $ do
     let size = 6px
     position =: absolute

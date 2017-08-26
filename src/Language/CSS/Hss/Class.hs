@@ -415,11 +415,16 @@ subsection sel sect = embedSectionDecl (Section sel <$> lift (joinStyleT sect))
 
 instance Semigroup Selector where (<>) = MergeSelector
 
-instance IsString Selector where
-  fromString = SimpleSelector . fromString
+instance IsString           Selector where fromString = convert
+instance Convertible Text   Selector where convert = SimpleSelector
+instance Convertible String Selector where convert = convertVia @Text
+
 instance {-# OVERLAPPABLE #-} (s ~ StyleSchemeT v m (), a ~ (), Monad m)
       => IsString (s -> StyleSchemeT v m a) where
   fromString = subsection . fromString
+
+instance (s ~ StyleSchemeT v m (), a ~ (), Monad m) => Convertible String (s -> StyleSchemeT v m a) where convert = subsection . fromString
+instance (s ~ StyleSchemeT v m (), a ~ (), Monad m) => Convertible Text   (s -> StyleSchemeT v m a) where convert = subsection . convert
 
 -- | Syntax `#settingsView $ do ...` <=> `.settingsView {...}`
 instance (IsString (s -> StyleSchemeT v m a), KnownSymbol lab)

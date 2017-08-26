@@ -124,13 +124,29 @@ radiusOf t = radiusMap ^?! ix t
 
 -- === Colors === --
 
+colorBase, transparentColorBase :: Expr
+colorBase            = rgb 1 1 1
+transparentColorBase = setAlpha 0 colorBase
+
 colorMap :: Map Text Expr
 colorMap = fromList
   [ (#text          , rgba 1 1 1 0.6)
   , (#layer         , rgba 1 1 1 0.05)
   , (#toggle        , rgba 1 1 1 0.14)
   , (#border        , rgba 0 0 0 1)
+  , (#errorLayer    , "mix" black "#d13b2e" 20)
+  , (#fatalLayer    , "mix" black "#d13b2e" 20)
+  , (#warningLayer  , "mix" black "#e29433" 20)
+  , (#infoLayer     , "mix" black "#339ae2" 24)
+  , (#successLayer  , "mix" black "#a7cb30" 20)
+  , (#gitAdded      , "#eafe5e")
+  , (#gitModified   , "#fbd971")
+  -- , (#gitModified   , "#feee5e")
+
+  -- Computed :
   , (#panelHighlight, "mix" accentColor black 50)
+  , (#hoverLayer    , hovered  transparentColorBase)
+  , (#selectLayer   , selected transparentColorBase)
   ]
 
 colorOf, bakedColorOf :: HasCallStack => Text -> Expr
@@ -146,9 +162,9 @@ subtle, secondary :: Expr -> Expr
 subtle    = modAlpha (* 0.4)
 secondary = modAlpha (* 0.5)
 
-hover, selected, highlighted, disabled, inactive :: Expr -> Expr
-hover       = modAlpha (+ 0.04)
-selected    = modAlpha (+ 0.08)
+hovered, selected, highlighted, disabled, inactive :: Expr -> Expr
+hovered     = modAlpha (+ 0.04)
+selected    = modAlpha (+ 0.06)
 highlighted = modAlpha (+ 0.08)
 disabled    = modAlpha (* 0.5)
 inactive    = modAlpha (* 0.5)
