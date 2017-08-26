@@ -30,6 +30,43 @@ import Luna.Studio.Theme.UI.Tab
 import Luna.Studio.Theme.UI.Settings
 import Luna.Studio.Theme.UI.Editor
 
+--
+
+styleMessages = "atom-notification" $ do
+  return ()
+  "&.error, &.fatal" $ do
+    "&::before" $ do
+      width =: 40 px
+      borderRadius =: [radiusOf #message,0,0,radiusOf #message]
+    ".btn.close-all" $ do
+      border          =: 0
+      color           =: highlighted $ colorOf #text
+      backgroundColor =: highlighted $ colorOf #layer
+    ".close.icon" $ do
+      color =: white
+    #content $ do
+      padding      =: 10px
+      borderRadius =: [0,radiusOf #message,radiusOf #message,0]
+      color        =: highlighted $ colorOf #text
+      backgroundColor =: "#d13b2e"
+      #message $ do
+        padding      =: 0
+        marginBottom =: marginOf #description
+        fontSize     =: sizeOf #title
+        fontWeight   =: 800
+      #detail $ do
+        padding         =: 0
+        border          =: 0
+        margin          =: 0 -- [10px,0,10px,0]
+        fontSize        =: sizeOf #text
+        backgroundColor =: transparent
+        color           =: colorOf #text
+        #stackToggle $ do
+          color =: colorOf #text
+          ".icon::before" $ do
+            fontSize    =: sizeOf #text
+            marginRight =: 3px
+
 
 globalStyles = do
   "*"              $ boxSizing       =: borderBox
@@ -150,6 +187,7 @@ root = do
   styleEditor
   styleMinimap
   styleScrollbars
+  styleMessages
 
 
 

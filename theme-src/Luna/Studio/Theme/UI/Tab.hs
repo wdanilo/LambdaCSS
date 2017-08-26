@@ -73,12 +73,14 @@ styleTabs = do
       margin    =: [0, 10px] -- FIXME
 
     -- icons
-    ".title.title:before" $ do
-      marginRight =: 4px
-      width       =: sizeOf #text
-      height      =: sizeOf #text
-      fontSize    =: sizeOf #text
-      lineHeight  =: sizeOf #text
+    #title $ do
+      fontSize =: sizeOf #title
+      "&::before" $ do
+        marginRight =: 4px
+        width       =: sizeOf #title
+        height      =: sizeOf #title
+        fontSize    =: sizeOf #title
+        lineHeight  =: sizeOf #title
 
 
   -- === Close icon === --

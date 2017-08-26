@@ -44,7 +44,7 @@ makeLenses ''Font
 fontMap :: Map Text Font
 fontMap = fromList
   [ (#base       , Font (12px))
-  , (#section    , Font (36px))
+  , (#section    , Font (28px))
   , (#description, Font (13px))
   ]
 
@@ -66,11 +66,11 @@ marginMap = fromList
   , (#sectionSide        , uiSize * 4)
   , (#sectionDesc        , uiSize * 1.5)
   , (#sectionBody        , uiSize * 3)
-  , (#description        , uiSize)
+  , (#packageDescription , uiSize)
   , (#title              , uiSize)
   , (#secondaryInfo      , uiSize)
   , (#option             , uiSize * 1.5)
-  , (#optionDescription  , uiSize / 2.5)
+  , (#description        , uiSize / 2.5)
   , (#inlineControl      , uiSize * 0.9)
   , (#tab                , uiSize)
   , (#input              , base * 0.5)
@@ -85,10 +85,14 @@ marginOf t = marginMap ^?! ix t
 
 sizeMap :: Map Text Expr
 sizeMap = fromList
-  [ (#paneBorder, 4px)
-  , (#tab       , uiSize * 3)
-  , (#text      , 12px)
-  , (#line      , uiSize * 2)
+  [ (#paneBorder  , 4px)
+  , (#tab         , uiSize * 3)
+  , (#text        , 12px)
+  , (#title       , 13px)
+  , (#heading     , 16px)
+  , (#section     , 16px)
+  , (#description , 12px)
+  , (#line        , uiSize * 2)
   ]
 
 sizeOf :: HasCallStack => Text -> Expr
@@ -106,11 +110,12 @@ roundnessMap = fromList
 roundnessOf :: HasCallStack => Text -> Expr
 roundnessOf t = roundnessMap ^?! ix t
 
--- FIXME: move to roundness
+-- FIXME: move to roundness some elems
 radiusMap :: Map Text Expr
 radiusMap = fromList
-  [ (#button , 8px)
-  , (#card   , 40px)
+  [ (#button  , 8px)
+  , (#card    , 40px)
+  , (#message , 15px)
   ]
 
 radiusOf :: HasCallStack => Text -> Expr

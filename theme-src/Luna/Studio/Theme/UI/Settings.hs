@@ -46,7 +46,7 @@ setSectionColor c = do
   "&::before" $ color =: "fadeout"  c (10pct)
 
 menuItemOffset :: Expr
-menuItemOffset = marginOf #item * 2 + (fontSizeOf #base)
+menuItemOffset = marginOf #item * 2 + (sizeOf #text)
 
 
 focusMixin :: MonadThunk m => StyleT m ()
@@ -117,7 +117,7 @@ configMenuStyle = do
 
         #icon $ do
           padding    =: 0
-          fontSize   =: fontSizeOf #base
+          fontSize   =: sizeOf #title
           marginLeft =: marginOf #item
           lineHeight =: menuItemOffset
           background =: none !important
@@ -162,7 +162,7 @@ sectionStyle = do
     #section . #icon    $ "&.section-heading, &.sub-section-heading" $ do
       setSectionColor $ colorOf #text
       fontSize   =: fontSizeOf #section
-      fontWeight =: 200 !important
+      fontWeight =: 300 !important
       iconStyleForHack #section
       #badge $ do
         marginLeft =: 10px
@@ -177,10 +177,14 @@ sectionStyle = do
       marginBottom =: marginOf #option !important
       #checkbox $ do
         margin =: 0;
-        #settingDescription $ margin =: [marginOf #optionDescription, 0]
+        #settingDescription $ margin =: [marginOf #description, 0]
 
+    #settingTitle $ do
+      color    =: colorOf #text
+      fontSize =: sizeOf  #title
     #settingDescription $ do
       color        =: secondary $ colorOf #text
+      fontSize     =: sizeOf #description
       marginTop    =: 5px
       marginBottom =: 4px
 
@@ -206,21 +210,24 @@ cardStyle = do
 
       #packageDescription $ do
         display =: block
-        margin  =: [marginOf #description, 0]
+        margin  =: [marginOf #packageDescription, 0]
 
       #metaControls        $ do margin        =: 0
       #cardName            $ do marginBottom  =: marginOf #title
+                                fontSize      =: sizeOf #title
+                                -- fontWeight    =: 400 !important
       #packageName         $ do color         =: colorOf  #text
       #packageVersion      $ do marginLeft    =: marginOf #secondaryInfo
                                 color         =: subtle $ colorOf #text
       #metaUser            $ do display       =: none
       #statusIndicator     $ do display       =: none
       #packageDescription  $ do color         =: secondary $ colorOf #text
-                                fontSize      =: fontSizeOf #description
+                                fontSize      =: sizeOf #text
       #stats . #value      $ do color         =: subtle $ colorOf #text
-                                fontSize      =: fontSizeOf #description
+                                fontSize      =: sizeOf #text
       #stats . #icon       $ scaledIconStyleFor 1 #description
       #btnToolbar . #icon  $ do
+        fontSize =: sizeOf #title
         color =: secondary $ colorOf #text
         "&::before"        $ do color         =: secondary $ colorOf #text
                                 marginRight   =: 7px
@@ -236,8 +243,8 @@ cardStyle = do
       #breadcrumb $ do
         padding      =: 0
         marginLeft   =: marginOf #sectionSide
-        marginTop    =: (marginOf #item - fontSizeOf #base) / 2
-        marginBottom =: (marginOf #item - fontSizeOf #base) / 2
+        marginTop    =: (marginOf #item - sizeOf #text) / 2
+        marginBottom =: (marginOf #item - sizeOf #text) / 2
 
     -- button roundness
     #meta . #btnToolbar . #btnGroup $ do
@@ -344,7 +351,7 @@ componentStyle = do
   #formControl $ do
     "option" $ backgroundColor =: bakedColorOf #layer !important
     border        =: 0
-    fontSize      =: fontSizeOf #base * 1.25
+    fontSize      =: sizeOf #text * 1.25
     paddingTop    =: 0
     paddingBottom =: 0
     borderRadius  =: 20px
