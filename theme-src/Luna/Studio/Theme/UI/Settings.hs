@@ -14,7 +14,6 @@ import Luna.Studio.Theme.UI.Prim
 import Luna.Studio.Theme.UI.Utils
 
 
-
 iconOffset :: Expr
 iconOffset = 0.4
 

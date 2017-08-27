@@ -164,7 +164,7 @@ secondary = modAlpha (* 0.5)
 
 hovered, selected, highlighted, disabled, inactive :: Expr -> Expr
 hovered     = modAlpha (+ 0.04)
-selected    = modAlpha (+ 0.06)
+selected    = modAlpha (+ 0.05)
 highlighted = modAlpha (+ 0.08)
 disabled    = modAlpha (* 0.5)
 inactive    = modAlpha (* 0.5)

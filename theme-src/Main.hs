@@ -56,27 +56,38 @@ styleTreeView = do
         fontSize =: sizeOf #title
         marginTop =: marginOf #title
         fontWeight =: 600 !important
-    -- ".file.list-item:not(.opened), .directory:not(.opened) > div" $ do
-    -- color =: rgb 1 0 0
-    -- ".file.list-item:not(.opened), .directory:not(.opened) > div" $ do
-    ".file.list-item, .directory" $ do
-      let activeColor   = colorOf #text
-          inactiveColor = inactive $ activeColor
-          styleItem col = do
-            styleItem' col
-            "&.list-item.header::before" $ opacity =: alpha col
-            ".name::before"              $ opacity =: alpha col
-            "&.status-modified" $ styleItem' $ setAlpha (alpha col) $ colorOf #gitModified
-            "&.status-added"    $ styleItem' $ setAlpha (alpha col) $ colorOf #gitAdded
-          styleItem' col = do
-            "> .name"     $ color =: col
-            "> .header"   $ do
-              ".name"     $ color =: col
-              "&::before" $ color =: col
 
-      styleItem activeColor
-      "&:not(.opened)" $ "&, & > div.header" $ do
-        styleItem inactiveColor
+    -- colors
+    let entryColSel = "> .name, > .header .name, > .header .name::before, > .header::before"
+    "&:not(:hover) .entry:not(.opened)" $ do
+      ".name"                           $ color =: colorOf #text
+      "&.status-modified" $ entryColSel $ color =: colorOf #text
+      "&.status-added"    $ entryColSel $ color =: colorOf #text
+      ".icon" $ "&::before" $ color =: colorOf #text
+    ".entry" $ do
+      ".name"                           $ color =: colorOf #text
+      "&.status-modified" $ entryColSel $ color =: setAlpha (alpha $ colorOf #text) $ colorOf #gitModified
+      "&.status-added"    $ entryColSel $ color =: setAlpha (alpha $ colorOf #text) $ colorOf #gitAdded
+      ".default-icon, .icon-file-directory" $ "&::before" $ color =: white
+
+    -- opacity
+    ".icon::before" $ opacity =: alpha $ colorOf #text
+    "&:not(:hover)" $ do
+      ".entry.directory .header, .entry.file .name" $ do
+        opacity =: 0.25
+    "&:hover" $ do
+      ".entry.directory .header, .entry.file .name" $ do
+        opacity =: 0.4
+    ".entry.opened" $ "> .name, > .header" $ opacity =: 1 !important
+
+    -- animation
+    ".entry" $ do
+      ".header, .header::before" $ transition =: [[color, 0.2s], [opacity, 0.2s]]
+      ".name"                    $ transition =: [[color, 0.2s], [opacity, 0.2s]]
+    ".name::before" $ do
+      transition =: [color, 0.2s]
+
+
   return ()
 
     --
