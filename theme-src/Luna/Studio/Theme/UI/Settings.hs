@@ -169,6 +169,32 @@ sectionStyle = do
         color      =: secondary $ colorOf #text
         background =: colorOf #layer;
 
+  -- == Eye icon === --
+  #settingsView $ do
+    -- "*" $ transition =: [color, 1s]
+    let sectSel = ".section-heading, .sub-section-heading" . "&.icon.has-items"
+        baseCol = secondary $ colorOf #text
+    #collapsed . sectSel . "&::after" $ do
+      color =: disabled baseCol
+      -- FIXME: vvv it does nto work, why?
+      -- "&:hover" $ color =: black !important -- hovered (disabled baseCol) !important
+
+    sectSel $ do
+      display =: flex
+      alignItems =: center
+      "&::after" $ do
+        fontFamily =: "'Octicons Regular'"
+        content    =: "\"\\f04e\""
+        color      =: baseCol
+        fontSize   =: fontSizeOf #section
+        width      =: auto
+        height     =: auto
+        "&:hover" $ do
+          color =: hovered baseCol
+          -- FIXME: vvv it does not work, why?
+          transition =: [color, 1s]
+
+
   -- === Controls layout === --
   #settingsView $ do
     #controlGroup $ do
@@ -271,7 +297,7 @@ specificSettingsStyle = do
         border =: none
         "&:first-child" $ borderRadius =: [20px, 0, 0, 20px]
         "&:last-child"  $ borderRadius =: [0, 20px, 20px, 0]
-      "tr:nth-child(even)" $ backgroundColor =: disabled $ colorOf #layer
+      "tr:nth-child(even)" $ backgroundColor =: colorOf #bglayer
 
 
   -- === Theme chooser === --
@@ -350,13 +376,15 @@ componentStyle = do
 
 
   -- === Drop-down lists === --
-  #formControl $ do
+  #settingsView . "select.form-control" $ do
     "option" $ backgroundColor =: bakedColorOf #layer !important
     border        =: 0
-    fontSize      =: sizeOf #text * 1.25
+    fontSize      =: sizeOf #text
+    color         =: colorOf #text
     paddingTop    =: 0
     paddingBottom =: 0
     borderRadius  =: 20px
+    borderRight   =: [8px, solid, transparent] -- moving the arrow a little bit left
     "&, &:active, &:hover" $ do
       background =: colorOf #layer !important
 
@@ -433,7 +461,9 @@ componentStyle = do
   #settingsView . #slider $ do
     marginTop      =: 10px
     marginBottom   =: 10px
-    #label $ color =: secondary (colorOf #text) !important
+    #label      $ do
+      fontSize     =: sizeOf #text
+      color        =: secondary (colorOf #text) !important
     #inputRange $ do
       zIndex       =: 0
       margin       =: 0
