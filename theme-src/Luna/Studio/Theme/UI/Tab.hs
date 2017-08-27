@@ -76,9 +76,13 @@ styleTabs = do
     "&:not(.active) .title::before" $ do
       color =: modAlpha (*0.25) (colorOf #text)
 
+    ".title:not(.icon-tools)::before" $ do
+      display =: none
+
     -- icons
     #title $ do
-      fontSize =: sizeOf #title
+      textAlign =: center
+      fontSize  =: sizeOf #title
       "&::before" $ do
         marginRight =: 4px
         width       =: sizeOf #title

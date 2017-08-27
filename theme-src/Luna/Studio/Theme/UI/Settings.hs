@@ -127,12 +127,13 @@ configMenuStyle = do
         margin =: 0
 
         #btn $ do
+          padding    =: 0
           whiteSpace =: initial
           textAlign  =: left
-          padding    =: 0
           marginLeft =: marginOf #item
           lineHeight =: menuItemOffset
           background =: none
+          width      =: auto
           "&:hover" . setColor $ hovered $ subtle $ colorOf #text
           setColor $ subtle $ colorOf #text
           iconStyle
