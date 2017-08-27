@@ -202,10 +202,10 @@ cardStyle = do
       border        =: 0
       borderRadius  =: 0
       padding       =: 19px
-      background    =: colorOf #layer
+      background    =: colorOf #bglayer
       marginBottom  =: 3px
-      "&:hover"    $ background =: hovered  $ colorOf #layer
-      "&.disabled" $ background =: disabled $ colorOf #layer
+      "&:hover"    $ background =: hovered  $ colorOf #bglayer
+      "&.disabled" $ background =: disabled $ colorOf #bglayer
 
       #packageDescription $ do
         display =: block

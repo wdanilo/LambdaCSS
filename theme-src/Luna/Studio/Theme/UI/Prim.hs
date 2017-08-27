@@ -132,6 +132,7 @@ colorMap :: Map Text Expr
 colorMap = fromList
   [ (#text          , rgba 1 1 1 0.6)
   , (#layer         , rgba 1 1 1 0.05)
+  , (#bglayer       , modAlpha (*0.6) $ colorOf #layer) -- bigger elements, like cards
   , (#toggle        , rgba 1 1 1 0.14)
   , (#border        , rgba 0 0 0 1)
   , (#errorLayer    , "mix" black "#d13b2e" 20)
@@ -163,7 +164,8 @@ subtle    = modAlpha (* 0.4)
 secondary = modAlpha (* 0.5)
 
 hovered, selected, highlighted, disabled, inactive :: Expr -> Expr
-hovered     = modAlpha (+ 0.04)
+-- hovered     = modAlpha (+ 0.04)
+hovered     = modAlpha (* 1.8)
 selected    = modAlpha (+ 0.05)
 highlighted = modAlpha (+ 0.08)
 disabled    = modAlpha (* 0.5)

@@ -61,7 +61,6 @@ styleTabs = do
     fontSize        =: inherit
     lineHeight      =: sizeOf #tab
     backgroundColor =: none
-    -- color           =: inactive (colorOf #text)
     color           =: modAlpha (* 0.4) (colorOf #text)
     transition      =: [color, animSpeedOf #tabSwitch]
     ".icon::before" $ do
