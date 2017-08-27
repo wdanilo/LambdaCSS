@@ -33,6 +33,7 @@ styleTabs = do
 
 
   -- === Padding === --
+
   #tabBar $ do
     position     =: relative
     height       =: sizeOf #tab + marginOf #tab
@@ -60,17 +61,21 @@ styleTabs = do
     fontSize        =: inherit
     lineHeight      =: sizeOf #tab
     backgroundColor =: none
-    color           =: inactive (colorOf #text)
+    -- color           =: inactive (colorOf #text)
+    color           =: modAlpha (* 0.4) (colorOf #text)
     transition      =: [color, animSpeedOf #tabSwitch]
     ".icon::before" $ do
+      marginRight =: 6px !important
       position   =: inherit
-      opacity    =: alpha $ inactive (colorOf #text)
       transition =: [opacity, animSpeedOf #tabSwitch]
 
 
     -- text
     #title $ do
       margin    =: [0, 10px] -- FIXME
+
+    "&:not(.active) .title::before" $ do
+      color =: modAlpha (*0.25) (colorOf #text)
 
     -- icons
     #title $ do

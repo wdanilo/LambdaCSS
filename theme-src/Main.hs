@@ -71,7 +71,7 @@ styleTreeView = do
       ".default-icon, .icon-file-directory" $ "&::before" $ color =: white
 
     -- opacity
-    ".icon::before" $ opacity =: alpha $ colorOf #text
+    ".icon::before" $ opacity =: 0.9 * alpha (colorOf #text)
     "&:not(:hover)" $ do
       ".entry.directory .header, .entry.file .name" $ do
         opacity =: 0.25
@@ -82,10 +82,10 @@ styleTreeView = do
 
     -- animation
     ".entry" $ do
-      ".header, .header::before" $ transition =: [[color, 0.2s], [opacity, 0.2s]]
-      ".name"                    $ transition =: [[color, 0.2s], [opacity, 0.2s]]
+      ".header, .header::before" $ transition =: [[color, animSpeedOf #treeView], [opacity, animSpeedOf #treeView]]
+      ".name"                    $ transition =: [[color, animSpeedOf #treeView], [opacity, animSpeedOf #treeView]]
     ".name::before" $ do
-      transition =: [color, 0.2s]
+      transition =: [color, animSpeedOf #treeView]
 
 
   return ()

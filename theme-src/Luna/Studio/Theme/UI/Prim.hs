@@ -179,6 +179,7 @@ animSpeedMap = fromList
   , (#minimapHover    , 0.2s)
   , (#tabSwitch       , 0.3s)
   , (#paneDim         , 0.5s)
+  , (#treeView        , 0.2s)
   ]
 
 animSpeedOf :: HasCallStack => Text -> Expr
