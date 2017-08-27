@@ -306,16 +306,20 @@ specificSettingsStyle = do
       marginTop =: marginOf #sectionBody
       #controlGroup $ do
         lineHeight =: 100pct
-        margin     =: (mkTxtExpr "1.5px") !important -- FIXME [WD]: why setting 2px margin here do not overlap while 1px does?
+        margin =: 1px !important
+        -- margin     =: (mkTxtExpr "1.5px") !important -- FIXME [WD]: why setting 2px margin here do not overlap while 1px does?
         #settingDescription $ display =: none
-        #controls . #controlLabel $ do
-          display =: inlineBlock
-          float   =: left
-          width   =: 150px
-          #text $ do
-            fontWeight =: normal
-            margin     =: 0
-            marginTop  =: 10px
+        #controls $ do
+          #formControl $ do
+            border =: 0
+          #controlLabel $ do
+            display =: inlineBlock
+            float   =: left
+            width   =: 120px
+            #text $ do
+              fontWeight =: normal
+              margin     =: 0
+              marginTop  =: 10px
 
         #controls . #selectContainer $ do
           ":first-child" $ do
