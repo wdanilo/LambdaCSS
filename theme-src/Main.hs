@@ -35,6 +35,12 @@ import Luna.Studio.Theme.UI.Editor
 zero :: MonadThunk m => [Pattern] -> StyleT m ()
 zero = mapM_ (=: 0)
 
+
+-- styleStatusBar :: MonadThunk m => StyleT m () 
+-- styleStatusBar = do
+--   #statusBar $ do
+--
+
 styleTreeView :: MonadThunk m => StyleT m ()
 styleTreeView = do
   -- We assume that tree view is on the left side

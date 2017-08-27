@@ -132,7 +132,7 @@ colorMap :: Map Text Expr
 colorMap = fromList
   [ (#text          , rgba 1 1 1 0.6)
   , (#layer         , rgba 1 1 1 0.05)
-  , (#bglayer       , modAlpha (*0.6) $ colorOf #layer) -- bigger elements, like cards
+  , (#bglayer       , modAlpha (*0.7) $ colorOf #layer) -- bigger elements, like cards
   , (#toggle        , rgba 1 1 1 0.14)
   , (#border        , rgba 0 0 0 1)
   , (#errorLayer    , "mix" black "#d13b2e" 20)

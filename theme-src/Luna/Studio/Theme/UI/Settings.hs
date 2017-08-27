@@ -204,6 +204,7 @@ cardStyle = do
       padding       =: 19px
       background    =: colorOf #bglayer
       marginBottom  =: 3px
+      fontSize      =: sizeOf #text
       "&:hover"    $ background =: hovered  $ colorOf #bglayer
       "&.disabled" $ background =: disabled $ colorOf #bglayer
 
@@ -214,23 +215,25 @@ cardStyle = do
       #metaControls        $ do margin        =: 0
       #cardName            $ do marginBottom  =: marginOf #title
                                 fontSize      =: sizeOf #title
-                                -- fontWeight    =: 400 !important
       #packageName         $ do color         =: colorOf  #text
       #packageVersion      $ do marginLeft    =: marginOf #secondaryInfo
                                 color         =: subtle $ colorOf #text
+                                fontSize      =: sizeOf #text
+                                fontWeight    =: normal
       #metaUser            $ do display       =: none
       #statusIndicator     $ do display       =: none
       #packageDescription  $ do color         =: secondary $ colorOf #text
-                                fontSize      =: sizeOf #text
       #stats . #value      $ do color         =: subtle $ colorOf #text
-                                fontSize      =: sizeOf #text
-      #stats . #icon       $ scaledIconStyleFor 1 #description
+      #stats . #icon       $ do scaledIconStyleFor 1 #description
+                                lineHeight    =: normal
+      #stats . #statsItem  $ do lineHeight    =: normal
       #btnToolbar . #icon  $ do
         fontSize =: sizeOf #title
         color =: secondary $ colorOf #text
         "&::before"        $ do color         =: secondary $ colorOf #text
                                 marginRight   =: 7px
         "&:hover"          $ do color         =: colorOf #text
+                                "&::before" $ color =:colorOf #text
         "&.install-button" $ do btnVariant accentBgLayerColor
 
     #packageDetail $ do
