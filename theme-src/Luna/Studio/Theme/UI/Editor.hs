@@ -18,6 +18,7 @@ import qualified GHC.Exts as Lits
 styleEditor :: MonadThunk m => StyleT m ()
 styleEditor = do
   styleGitMarkers
+  styleMinimap
 
 
 styleGitMarkers :: MonadThunk m => StyleT m ()
@@ -55,3 +56,20 @@ styleGitMarkers = "atom-text-editor .gutter .line-number" $ do
     borderWidth     =: size
     marginTop       =: -size
     pointerEvents   =: none
+
+
+styleMinimap :: MonadThunk m => StyleT m ()
+styleMinimap = "atom-text-editor atom-text-editor-minimap" $ do
+    opacity =: 0.5
+    transition =: [opacity, animSpeedOf #minimapHover]
+    "&:hover" $ do
+      opacity =: 1
+      transition =: [opacity, animSpeedOf #minimapHover]
+
+    -- Don't touch it. If you change 0.75 value the blending could break
+    -- until chrome blending gets fixed.
+    #minimapVisibleArea $ do
+      boxShadow =: [0,0,0,10000px, setAlpha 0.75 bgColor]
+      "&::after" $ backgroundColor =: transparent
+
+    #minimapControls $ display =: none

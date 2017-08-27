@@ -73,3 +73,6 @@ vcenterChildren = do
   display        =: flex
   flexDirection  =: column
   justifyContent =: center
+
+zero :: MonadThunk m => [Pattern] -> StyleT m ()
+zero = mapM_ (=: 0)
