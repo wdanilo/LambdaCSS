@@ -135,14 +135,13 @@ colorMap = fromList
   , (#bglayer       , modAlpha (*0.7) $ colorOf #layer) -- bigger elements, like cards
   , (#toggle        , rgba 1 1 1 0.14)
   , (#border        , rgba 0 0 0 1)
-  , (#errorLayer    , "mix" black "#d13b2e" 20)
-  , (#fatalLayer    , "mix" black "#d13b2e" 20)
-  , (#warningLayer  , "mix" black "#e29433" 20)
-  , (#infoLayer     , "mix" black "#339ae2" 24)
-  , (#successLayer  , "mix" black "#a7cb30" 20)
+  , (#errorLayer    , "mix" black "#992e2e" 20)
+  , (#fatalLayer    , "mix" black "#992e2e" 20)
+  , (#warningLayer  , "mix" black "#b35e2f" 20)
+  , (#infoLayer     , "mix" black "#41768b" 20)
+  , (#successLayer  , "mix" black "#8ba33b" 35)
   , (#gitAdded      , "#eafe5e")
   , (#gitModified   , "#fbd971")
-  -- , (#gitModified   , "#feee5e")
 
   -- Computed :
   , (#panelHighlight, "mix" accentColor black 50)

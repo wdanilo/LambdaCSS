@@ -45,7 +45,22 @@ root = do
   styleScrollbars
   styleMessages
   styleTreeView
+  styleTerminal
+  styleStatusBar
 
+styleTerminal = do
+  #terminalView . #standard $ do
+    backgroundColor =: transparent
+    color           =: colorOf #text
+
+styleStatusBar = do
+  #statusBar $ do
+    "status-bar-file"        $ display =: none
+    "status-bar-cursor"      $ display =: none
+    "status-bar-selection"   $ display =: none
+    "status-bar-launch-mode" $ display =: none
+    fontSize =: sizeOf #text
+    "&, a" $ color =: secondary $ colorOf #text
 
 main :: IO ()
 main = do

@@ -22,6 +22,8 @@ styleTreeView = do
   ".atom-dock-inner.left .tab-bar" $ display =: none
 
   #treeView $ do
+    overflowX =: hidden
+
     ".full-menu.list-tree" $ do
       marginLeft  =: 14px
       paddingLeft =: 6px
