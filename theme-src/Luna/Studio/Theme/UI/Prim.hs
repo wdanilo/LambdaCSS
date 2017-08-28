@@ -60,10 +60,10 @@ fontSizeOf t = fontOf t ^. size
 marginMap :: Map Text Expr
 marginMap = fromList
   [ (#base               , base)
-  , (#panel              , base * 2)
+  , (#menu               , base * 1.4)
   , (#item               , base)
   , (#subSection         , uiSize * 5)
-  , (#sectionSide        , uiSize * 4)
+  , (#panel              , base)
   , (#sectionDesc        , uiSize * 1.5)
   , (#sectionBody        , uiSize * 3)
   , (#packageDescription , uiSize)

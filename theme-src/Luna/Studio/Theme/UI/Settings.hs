@@ -96,13 +96,14 @@ configMenuStyle :: MonadThunk m => StyleT m ()
 configMenuStyle = do
   #settingsView $ do
     #configMenu $ do
-      position   =: relative
-      marginLeft =: marginOf #panel
-      minWidth   =: uiSize * 14 -- FIXME
-      maxWidth   =: uiSize * 20 -- FIXME
-      background =: none
-      border     =: 0
-      padding    =: 0
+      position    =: relative
+      marginLeft  =: marginOf #menu
+      marginRight =: marginOf #menu
+      minWidth    =: uiSize * 14 -- FIXME
+      maxWidth    =: uiSize * 20 -- FIXME
+      background  =: none
+      border      =: 0
+      padding     =: 0
 
       ".nav > li" $ do
         borderRadius =: radiusOf #button
@@ -144,11 +145,13 @@ sectionStyle = do
 
   -- === Layout === --
   #settingsView $ do
+    #section $ do
+      marginRight =: marginOf #panel
     ".panels-item > .section:first-child" $ marginTop =: 5px
     #subSection $ marginTop =: marginOf #subSection
     #section $ do
       padding =: 0 !important
-      margin  =: marginOf #sectionSide
+      -- margin  =: marginOf #sectionSide
       #sectionContainer $
         maxWidth =: 600px;
       "section-heading, .sub-section-heading" $ do
@@ -271,7 +274,7 @@ cardStyle = do
 
       #breadcrumb $ do
         padding      =: 0
-        marginLeft   =: marginOf #sectionSide
+        marginLeft   =: marginOf #panel
         marginTop    =: (marginOf #item - sizeOf #text) / 2
         marginBottom =: (marginOf #item - sizeOf #text) / 2
 
