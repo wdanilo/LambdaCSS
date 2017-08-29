@@ -22,7 +22,7 @@ accentColor        = var "accent-color"
 accentColorWide    = var "accent-color-wide"
 accentColorSubtle  = var "accent-color-subtle"
 accentBgLayerColor = var "accent-bg-layer-color"
-bgColor            = var "base-background-color"
+bgColor            = var "ui-bg"
 syntaxBgColor      = var "syntax-background-color"
 
 

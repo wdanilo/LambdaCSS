@@ -35,8 +35,8 @@ import Luna.Studio.Theme.UI.Message
 import Luna.Studio.Theme.UI.TreeView
 
 
-root :: MonadThunk m => StyleT m ()
-root = do
+styleUI :: MonadThunk m => StyleT m ()
+styleUI = do
   globalStyles
   styleSettings
   styleTabs
@@ -47,6 +47,11 @@ root = do
   styleTreeView
   styleTerminal
   styleStatusBar
+
+styleVars :: MonadThunk m => StyleT m ()
+styleVars = do
+  "@bgColor" =: bgColor
+  -- globalStyles
 
 styleTerminal = do
   #terminalView . #standard $ do
@@ -64,20 +69,23 @@ styleStatusBar = do
 
 main :: IO ()
 main = do
-  fdecls <- flip evalStateT (mempty :: ThunkMap) $ do
-    r <- joinStyleT root
+  (uiDecls, varsDecls) <- flip evalStateT (mempty :: ThunkMap) $ do
+    ui   <- joinStyleT styleUI
+    vars <- joinStyleT styleVars
     -- print =<< getSortedThunks
     -- pprint =<< get @ThunkMap
     evalThunkPassManager $ do
       registerThunkPass funcEvaluator
       evalThunks
     -- pprint =<< get @ThunkMap
-    mapM fixDecl (toList r)
-
-  -- pprint fdecls
+    (,) <$> mapM fixDecl (toList ui)
+        <*> mapM fixDecl (toList vars)
+  -- pprint uiDecls
   -- print =<< readMVar thunkMapRef
 
   -- pprint r
-  let css = Doc.renderLineBlock $ Doc.render $ render @Pretty @Less fdecls
-  putStrLn $ convert css
-  writeFile "/home/wdanilo/github/luna-dark-ui/styles/style.css" $ convert css
+  let uiLess   = Doc.renderLineBlock $ Doc.render $ render @Pretty @Less uiDecls
+      varsLess = Doc.renderLineBlock $ Doc.render $ render @Pretty @Less varsDecls
+  putStrLn $ convert uiLess
+  writeFile "/home/wdanilo/github/luna-dark-ui/styles/style.css"     $ convert uiLess
+  writeFile "/home/wdanilo/github/luna-dark-ui/styles/variables.less" $ convert varsLess

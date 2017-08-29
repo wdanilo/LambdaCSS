@@ -1,0 +1,29 @@
+resolver: nightly-2017-08-17
+packages:
+  - .
+  - ../libs/dependent-state
+  - ../libs/lens-utils
+  - ../libs/prologue
+  - ../libs/container
+  - ../libs/convert
+  - ../libs/data-layer
+  - ../libs/data-construction
+  - ../libs/data-repr
+  - ../libs/impossible
+  - ../libs/typelevel
+  - ../libs/data-rtuple
+  - ../libs/data-prop
+  - ../libs/monad-branch
+  - ../libs/monoid
+  - ../libs/functor-utils
+  - ../libs/layouting
+  - ../libs/terminal-text
+
+
+
+flags: {}
+
+extra-package-dbs: []
+
+extra-deps:
+  - cond-0.4.1.1
